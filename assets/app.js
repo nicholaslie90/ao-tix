@@ -21,7 +21,7 @@ var lastChecked = null;   // waktu terakhir web berhasil menarik file
 var $ = function (id) { return document.getElementById(id); };
 var loginEl = $('login'), appEl = $('app'), loginForm = $('login-form');
 var pwInput = $('password'), rememberInput = $('remember'), loginError = $('login-error');
-var statusEl = $('status'), searchEl = $('search'), statsEl = $('stats');
+var statusEl = $('status'), statsEl = $('stats');
 var datepickerEl = $('datepicker');
 var themeToggle = $('theme-toggle');
 var upcomingEl = $('upcoming'), archiveEl = $('archive'), archiveWrap = $('archive-wrap');
@@ -222,15 +222,15 @@ function renderReturnWarning(summary) {
 
 /* ===== Render ===== */
 function render() {
-  var q = (searchEl.value || '').toLowerCase().trim();
-  var now = Date.now();
+  // Tanggal hari ini di zona WIB (YYYY-MM-DD) — arsip hanya kalau harinya sudah lewat.
+  var todayWIB = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
   var upcoming = [], archive = [];
 
   var missing = annotateMissing(tickets, detectHome(tickets));
 
-  tickets.filter(function (t) { return matchQuery(t, q); }).forEach(function (t) {
-    var dep = t.departISO ? Date.parse(t.departISO) : NaN;
-    if (!isNaN(dep) && dep >= now) upcoming.push(t); else archive.push(t);
+  tickets.forEach(function (t) {
+    var day = dateKey(t);
+    if (day && day < todayWIB) archive.push(t); else upcoming.push(t);
   });
 
   upcoming.sort(function (a, b) { return Date.parse(a.departISO) - Date.parse(b.departISO); });
@@ -272,15 +272,6 @@ function renderStats() {
 function statCard(value, label, cls) {
   return '<div class="stat"><div class="stat-value ' + cls + '">' + esc(value) +
     '</div><div class="stat-label">' + esc(label) + '</div></div>';
-}
-
-function matchQuery(t, q) {
-  if (!q) return true;
-  var hay = [t.bookingCode, t.departurePoint, t.destinationPoint, t.departDate,
-    t.departTime, t.name].concat(
-    (t.passengers || []).map(function (p) { return p.name + ' ' + p.route; })
-  ).join(' ').toLowerCase();
-  return hay.indexOf(q) >= 0;
 }
 
 /* Kelompokkan tiket (sudah terurut) per tanggal, beri header tanggal. */
@@ -531,8 +522,6 @@ if (themeToggle) themeToggle.addEventListener('click', function () {
 /* ===== Loncat ke tanggal (datepicker) ===== */
 function jumpToDate(val) {
   if (!val) return;
-  // Kalau pencarian aktif, kosongkan dulu supaya target tidak tersembunyi.
-  if (searchEl.value) { searchEl.value = ''; render(); }
 
   var anchors = Array.prototype.slice.call(document.querySelectorAll('[data-date]'))
     .filter(function (el) { return el.getAttribute('data-date'); });
@@ -566,7 +555,6 @@ function jumpToDate(val) {
 }
 
 /* ===== Event lainnya ===== */
-searchEl.addEventListener('input', render);
 datepickerEl.addEventListener('change', function () { jumpToDate(this.value); });
 $('refresh').addEventListener('click', function () {
   statusEl.textContent = 'menyegarkan…';
