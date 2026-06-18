@@ -554,11 +554,30 @@ function jumpToDate(val) {
   target.classList.add('jump-flash');
 }
 
+/* Tanggal ramah, mis. "Selasa, 30 Juni 2026". */
+function fmtDateFull(val) {
+  var d = new Date(val + 'T00:00:00+07:00');
+  if (isNaN(d.getTime())) return val;
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      timeZone: 'Asia/Jakarta'
+    }).format(d);
+  } catch (e) { return val; }
+}
+
 /* ===== Event lainnya ===== */
-datepickerEl.addEventListener('change', function () { jumpToDate(this.value); });
-$('refresh').addEventListener('click', function () {
-  statusEl.textContent = 'menyegarkan…';
-  loadData(true).catch(function () { updateStatus(); });
+var datepickerField = $('datepicker-field');
+var datepickerLabel = $('datepicker-label');
+datepickerEl.addEventListener('change', function () {
+  if (this.value) {
+    datepickerLabel.textContent = fmtDateFull(this.value);
+    datepickerField.classList.add('has-value');
+  } else {
+    datepickerLabel.textContent = 'Loncat ke tanggal';
+    datepickerField.classList.remove('has-value');
+  }
+  jumpToDate(this.value);
 });
 $('logout').addEventListener('click', logout);
 

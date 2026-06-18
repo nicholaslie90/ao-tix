@@ -30,9 +30,12 @@
         <span id="status" class="status muted"></span>
       </div>
       <div class="topbar-right">
-        <input id="datepicker" type="date" title="Loncat ke tanggal" aria-label="Loncat ke tanggal" />
+        <label id="datepicker-field" class="datepicker-field" title="Loncat ke tanggal">
+          <span class="datepicker-icon" aria-hidden="true">📅</span>
+          <span id="datepicker-label" class="datepicker-label">Loncat ke tanggal</span>
+          <input id="datepicker" type="date" aria-label="Loncat ke tanggal" />
+        </label>
         <button id="theme-toggle" class="ghost" title="Ganti tema gelap/terang" aria-label="Ganti tema">🌙</button>
-        <button id="refresh" title="Refresh sekarang">↻ Refresh</button>
         <button id="logout" class="ghost">Keluar</button>
       </div>
     </header>

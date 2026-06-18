@@ -61,17 +61,30 @@ button { cursor: pointer; font: inherit; }
 .topbar-left { display: flex; align-items: baseline; gap: 10px; }
 .status { font-size: 12px; }
 .topbar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.topbar-right input {
-  padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--panel-2); color: var(--text); min-width: 220px;
-}
 .topbar-right button {
   padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--panel-2); color: var(--text);
+  background: var(--panel-2); color: var(--text); white-space: nowrap;
 }
 .topbar-right button:hover { border-color: var(--accent); }
 .topbar-right .ghost { background: transparent; }
-.topbar-right #datepicker { min-width: 0; max-width: 150px; }
+
+/* Datepicker: tampilan ramah ("Selasa, 30 Juni 2026"), input native disembunyikan di atasnya. */
+.datepicker-field {
+  position: relative; display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--muted); cursor: pointer;
+  max-width: 220px; transition: border-color .15s;
+}
+.datepicker-field:hover { border-color: var(--accent); }
+.datepicker-icon { flex: none; line-height: 1; }
+.datepicker-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.datepicker-field.has-value { color: var(--text); }
+.datepicker-field.has-value .datepicker-label { font-weight: 600; }
+/* Input native menutupi field tapi transparan — klik mana pun membuka pemilih tanggal. */
+.datepicker-field input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; margin: 0; padding: 0; cursor: pointer;
+}
 
 /* ----- Content ----- */
 .content { max-width: 980px; margin: 0 auto; padding: 22px 18px 60px; }
@@ -194,6 +207,8 @@ a { color: var(--accent); }
 
 @media (max-width: 520px) {
   .kv { grid-template-columns: 110px 1fr; }
-  .topbar-right input { min-width: 140px; flex: 1; }
+  /* Pakai lebar layar: datepicker memanjang, tombol tetap ringkas di sampingnya. */
+  .topbar-right { width: 100%; flex-wrap: nowrap; }
+  .datepicker-field { flex: 1; max-width: none; }
   .stat-value { font-size: 19px; }
 }
