@@ -1,24 +1,32 @@
 'use strict';
 
 /* ===== Konfigurasi ===== */
-var DATA_URL = 'data/tickets.enc.json';
+// Ambil data dari raw.githubusercontent (update segera setelah commit; tak perlu
+// menunggu build GitHub Pages). Fallback ke file lokal kalau raw gagal.
+var DATA_RAW = 'https://raw.githubusercontent.com/nicholaslie90/ao-tix/main/data/tickets.enc.json';
+var DATA_LOCAL = 'data/tickets.enc.json';
 var POLL_MS = 60000;
 var STORE_KEY = 'aoshuttle_pw';
+var THEME_KEY = 'aoshuttle_theme';
 
 /* ===== State ===== */
 var password = null;
 var tickets = [];
 var lastCipherText = null;
 var pollTimer = null;
+var generatedAt = null;   // waktu data dibuat Apps Script (di dalam payload)
+var lastChecked = null;   // waktu terakhir web berhasil menarik file
 
 /* ===== Elemen ===== */
 var $ = function (id) { return document.getElementById(id); };
 var loginEl = $('login'), appEl = $('app'), loginForm = $('login-form');
 var pwInput = $('password'), rememberInput = $('remember'), loginError = $('login-error');
-var statusEl = $('status'), searchEl = $('search');
+var statusEl = $('status'), searchEl = $('search'), statsEl = $('stats');
+var themeToggle = $('theme-toggle');
 var upcomingEl = $('upcoming'), archiveEl = $('archive'), archiveWrap = $('archive-wrap');
 var archiveCountEl = $('archive-count'), emptyEl = $('empty');
 var modal = $('modal'), modalBody = $('modal-body');
+var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
 
 /* ===== Crypto (cocok dengan Apps Script) ===== */
 function decryptPayload(blob, pw) {
@@ -42,31 +50,39 @@ function decryptPayload(blob, pw) {
 
 /* ===== Fetch + load ===== */
 function fetchBlob() {
-  return fetch(DATA_URL + '?t=' + Date.now(), { cache: 'no-store' })
-    .then(function (r) {
-      if (!r.ok) throw new Error('fetch-failed-' + r.status);
-      return r.text();
+  var bust = '?t=' + Date.now();
+  return fetch(DATA_RAW + bust, { cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error('raw'); return r.text(); })
+    .catch(function () { // fallback ke file di Pages
+      return fetch(DATA_LOCAL + bust, { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) throw new Error('fetch-failed-' + r.status);
+        return r.text();
+      });
     });
 }
 
 /* Tarik data, dekripsi, render. force=true selalu render ulang. */
 function loadData(force) {
   return fetchBlob().then(function (raw) {
-    if (!force && raw === lastCipherText) { return false; }
+    lastChecked = Date.now(); // selalu catat waktu cek, walau data tak berubah
+    if (!force && raw === lastCipherText) { updateStatus(); return false; }
     lastCipherText = raw;
     var blob = JSON.parse(raw);
     if (!blob.ct) throw new Error('not-ready'); // placeholder / belum ada data
     var data = decryptPayload(blob, password); // throw wrong-password
     tickets = (data.tickets || []);
+    generatedAt = data.generatedAt || null;
     render();
-    setStatus(data.generatedAt);
+    updateStatus();
     return true;
   });
 }
 
-function setStatus(generatedAt) {
-  var when = generatedAt ? fmtDateTime(generatedAt) : '—';
-  statusEl.textContent = tickets.length + ' tiket · diperbarui ' + when;
+function updateStatus() {
+  var parts = [tickets.length + ' tiket'];
+  if (generatedAt) parts.push('data ' + fmtDateTime(generatedAt));
+  if (lastChecked) parts.push('dicek ' + fmtClock(lastChecked));
+  statusEl.textContent = parts.join(' · ');
 }
 
 /* ===== Login ===== */
@@ -141,7 +157,33 @@ function render() {
   archiveCountEl.textContent = archive.length ? '(' + archive.length + ')' : '';
   emptyEl.hidden = tickets.length !== 0;
 
+  renderStats();
   bindCards();
+}
+
+/* ===== Statistik (dihitung dari SEMUA tiket, bukan hasil filter) ===== */
+function parseRupiah(s) {
+  var n = String(s == null ? '' : s).replace(/[^\d]/g, '');
+  return n ? parseInt(n, 10) : 0;
+}
+function fmtRupiah(n) { return 'Rp ' + n.toLocaleString('id-ID'); }
+
+function renderStats() {
+  if (!tickets.length) { statsEl.hidden = true; statsEl.innerHTML = ''; return; }
+  statsEl.hidden = false;
+  var total = 0, seats = 0;
+  tickets.forEach(function (t) {
+    total += parseRupiah(t.totalBayar);
+    seats += ((t.priceRows && t.priceRows.length) || (t.passengers && t.passengers.length) || 0);
+  });
+  statsEl.innerHTML =
+    statCard(fmtRupiah(total), 'Total pengeluaran', 'money') +
+    statCard(tickets.length, 'Perjalanan', '') +
+    statCard(seats, 'Total tiket', '');
+}
+function statCard(value, label, cls) {
+  return '<div class="stat"><div class="stat-value ' + cls + '">' + esc(value) +
+    '</div><div class="stat-label">' + esc(label) + '</div></div>';
 }
 
 function matchQuery(t, q) {
@@ -219,8 +261,27 @@ function closeModal() { modal.hidden = true; modalBody.innerHTML = ''; }
 modal.addEventListener('click', function (e) {
   if (e.target.hasAttribute('data-close')) closeModal();
 });
+
+/* ===== Lightbox QR/barcode ===== */
+function openLightbox(src, cap) {
+  lightboxImg.src = src;
+  lightboxCap.textContent = cap || '';
+  lightbox.hidden = false;
+}
+function closeLightbox() { lightbox.hidden = true; lightboxImg.src = ''; }
+
+modalBody.addEventListener('click', function (e) {
+  var img = e.target.closest && e.target.closest('img.pax-qr');
+  if (img) openLightbox(img.getAttribute('src'), img.getAttribute('data-cap'));
+});
+lightbox.addEventListener('click', function (e) {
+  if (e.target.hasAttribute('data-close-lb')) closeLightbox();
+});
+
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape' && !modal.hidden) closeModal();
+  if (e.key !== 'Escape') return;
+  if (!lightbox.hidden) closeLightbox();
+  else if (!modal.hidden) closeModal();
 });
 
 function detailHtml(t) {
@@ -260,10 +321,16 @@ function detailHtml(t) {
 }
 
 function paxHtml(p) {
+  var img = '';
+  if (p.barcodeUrl) {
+    img = '<img class="pax-qr" src="' + esc(p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
+      '" loading="lazy" data-cap="' + esc((p.name || '') + ' · Kursi ' + (p.seat || '')) + '" />' +
+      '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';
+  }
   return '<div class="pax">' +
     '<div class="pax-name">' + esc(p.name) + '</div>' +
     '<div class="muted">Kursi ' + esc(p.seat) + ' · ' + esc((p.route || '').replace(/\s+/g, ' ')) + '</div>' +
-    (p.barcodeUrl ? '<img src="' + esc(p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) + '" loading="lazy" />' : '') +
+    img +
     '</div>';
 }
 
@@ -312,17 +379,46 @@ function fmtDateTime(iso) {
     }).format(d) + ' WIB';
   } catch (e) { return d.toLocaleString(); }
 }
+function fmtClock(ms) {
+  var d = new Date(ms);
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Jakarta'
+    }).format(d);
+  } catch (e) { return d.toLocaleTimeString(); }
+}
+
+/* ===== Tema gelap/terang ===== */
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  // tampilkan ikon aksi: di gelap tawarkan terang (matahari), sebaliknya bulan
+  if (themeToggle) themeToggle.textContent = theme === 'light' ? '🌙' : '☀️';
+}
+function initTheme() {
+  var saved = localStorage.getItem(THEME_KEY);
+  if (!saved) {
+    var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    saved = prefersLight ? 'light' : 'dark';
+  }
+  applyTheme(saved);
+}
+if (themeToggle) themeToggle.addEventListener('click', function () {
+  var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
 
 /* ===== Event lainnya ===== */
 searchEl.addEventListener('input', render);
 $('refresh').addEventListener('click', function () {
   statusEl.textContent = 'menyegarkan…';
-  loadData(true).catch(function (e) { setStatus(); });
+  loadData(true).catch(function () { updateStatus(); });
 });
 $('logout').addEventListener('click', logout);
 
-/* ===== Auto-unlock kalau password tersimpan ===== */
+/* ===== Init ===== */
 (function init() {
+  initTheme();
   var saved = localStorage.getItem(STORE_KEY) || sessionStorage.getItem(STORE_KEY);
   if (!saved) { pwInput.focus(); return; }
   password = saved;

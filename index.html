@@ -31,12 +31,14 @@
       </div>
       <div class="topbar-right">
         <input id="search" type="search" placeholder="Cari kode / rute / nama / tanggal" />
+        <button id="theme-toggle" class="ghost" title="Ganti tema gelap/terang" aria-label="Ganti tema">🌙</button>
         <button id="refresh" title="Refresh sekarang">↻ Refresh</button>
         <button id="logout" class="ghost">Keluar</button>
       </div>
     </header>
 
     <section class="content">
+      <div id="stats" class="stats"></div>
       <h2 class="section-title">Akan datang</h2>
       <div id="upcoming" class="cards"></div>
 
@@ -56,6 +58,16 @@
       <button class="modal-close" data-close aria-label="Tutup">×</button>
       <div id="modal-body"></div>
     </div>
+  </div>
+
+  <!-- Lightbox QR/barcode (perbesar untuk scan) -->
+  <div id="lightbox" class="lightbox" hidden>
+    <div class="lightbox-backdrop" data-close-lb></div>
+    <figure class="lightbox-fig">
+      <img id="lightbox-img" alt="QR / Boarding" />
+      <figcaption id="lightbox-cap"></figcaption>
+    </figure>
+    <button class="lightbox-close" data-close-lb aria-label="Tutup">×</button>
   </div>
 
   <script src="assets/crypto-js.min.js"></script>

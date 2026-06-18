@@ -13,6 +13,16 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* Tema terang */
+[data-theme="light"] {
+  --bg: #f3f5f8;
+  --panel: #ffffff;
+  --panel-2: #eef2f7;
+  --border: #d6dde6;
+  --text: #1a2230;
+  --muted: #5b6776;
+}
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; } /* atribut hidden harus menang atas display:grid/flex */
 html, body { margin: 0; height: 100%; }
@@ -108,14 +118,38 @@ button { cursor: pointer; font: inherit; }
 .otp { font-family: ui-monospace, monospace; font-size: 18px; font-weight: 700; color: var(--ok); }
 .pax { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
 .pax-name { font-weight: 600; }
-.pax img { max-width: 100%; margin-top: 8px; background: #fff; padding: 4px; border-radius: 4px; }
+.pax img {
+  display: block; width: 100%; max-width: 320px; margin-top: 10px;
+  background: #fff; padding: 10px; border-radius: 6px; cursor: zoom-in;
+  image-rendering: pixelated; /* barcode/QR tetap tajam saat diperbesar */
+}
+.pax .zoom-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 table.prices { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.prices th, table.prices td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
 table.prices td.num { text-align: right; }
 .total-row td { font-weight: 700; border-bottom: 0; }
 a { color: var(--accent); }
 
+/* ----- Statistik ----- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 4px 0 8px; }
+.stat { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.stat-value { font-size: 22px; font-weight: 800; }
+.stat-value.money { color: var(--ok); }
+.stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+
+/* ----- Lightbox QR ----- */
+.lightbox { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; }
+.lightbox-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.85); }
+.lightbox-fig { position: relative; margin: 0; text-align: center; }
+.lightbox-fig img {
+  background: #fff; padding: 18px; border-radius: 10px;
+  width: min(86vw, 420px); height: auto; image-rendering: pixelated;
+}
+.lightbox-fig figcaption { color: #fff; margin-top: 12px; font-size: 15px; }
+.lightbox-close { position: absolute; top: 14px; right: 18px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; }
+
 @media (max-width: 520px) {
   .kv { grid-template-columns: 110px 1fr; }
   .topbar-right input { min-width: 140px; flex: 1; }
+  .stat-value { font-size: 19px; }
 }
