@@ -34,15 +34,16 @@ var BULAN = {
 function syncTickets() {
   var props = PropertiesService.getScriptProperties();
   var tickets = collectTickets_();
-  var payload = JSON.stringify({ generatedAt: new Date().toISOString(), tickets: tickets });
 
-  // Lewati kalau isi (plaintext) tidak berubah, supaya tak ada commit sampah.
-  var hash = sha256Hex_(payload);
+  // Hash HANYA atas data tiket (tanpa generatedAt yang selalu berubah),
+  // supaya tak ada commit sampah tiap menit saat data tiket tidak berubah.
+  var hash = sha256Hex_(JSON.stringify(tickets));
   if (props.getProperty('LAST_HASH') === hash) {
     Logger.log('Tidak ada perubahan (%s tiket). Lewati push.', tickets.length);
     return;
   }
 
+  var payload = JSON.stringify({ generatedAt: new Date().toISOString(), tickets: tickets });
   var enc = encryptPayload_(payload, props.getProperty('TICKET_PASSWORD'));
   pushToGitHub_(JSON.stringify(enc));
   props.setProperty('LAST_HASH', hash);
