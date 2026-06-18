@@ -239,7 +239,7 @@ function render() {
   });
 
   upcomingEl.innerHTML = dayGroupsHtml(upcoming);
-  archiveEl.innerHTML = archive.map(function (t) { return cardHtml(t, false); }).join('');
+  archiveEl.innerHTML = dayGroupsHtml(archive);
   archiveWrap.hidden = archive.length === 0;
   archiveCountEl.textContent = archive.length ? '(' + archive.length + ')' : '';
   emptyEl.hidden = tickets.length !== 0;
