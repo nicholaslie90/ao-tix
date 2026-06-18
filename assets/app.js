@@ -384,7 +384,8 @@ function detailHtml(t) {
       ['Alamat', esc(t.address)],
       ['No. Telp', esc(t.phone)],
       ['Email', esc(t.email)],
-      ['OTP', '<span class="otp">' + esc(t.otp) + '</span>']
+      ['OTP', '<span class="otp">' + esc(t.otp) + '</span>'],
+      ['Email diterima', t.messageDate ? esc(fmtDateTime(t.messageDate)) : '']
     ])) +
 
     section('Keberangkatan', kv([
