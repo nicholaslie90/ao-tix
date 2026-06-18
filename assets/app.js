@@ -170,12 +170,12 @@ function annotateMissing(list, home) {
   list.forEach(function (t) { t._missing = null; });
   if (!home) return [];
   var now = Date.now();
+  // Kelengkapan hari dihitung dari SEMUA tiket tanggal itu (termasuk yang sudah
+  // berangkat), supaya tiket pergi yang sudah dipakai pagi ini tetap dianggap ada.
   var groups = {};
   list.forEach(function (t) {
     var k = dateKey(t);
     if (!k) return;
-    var dep = Date.parse(t.departISO);
-    if (isNaN(dep) || dep < now) return; // hanya akan datang
     (groups[k] = groups[k] || []).push(t);
   });
   var summary = [];
@@ -187,12 +187,18 @@ function annotateMissing(list, home) {
     if (hasPergi && !hasPulang) type = 'pulang';
     else if (hasPulang && !hasPergi) type = 'pergi';
     if (!type) return;
-    // Tandai tiket yang sudah ada (pasangannya yang kurang).
+    // Badge hanya pada tiket yang BELUM berangkat (ada kartu akan datang utk ditandai).
+    var repISO = null;
     arr.forEach(function (t) {
+      var dep = Date.parse(t.departISO);
+      if (isNaN(dep) || dep < now) return; // sudah berangkat -> jangan tandai
       var isPergi = normPoint(t.departurePoint) === home;
-      if ((type === 'pulang' && isPergi) || (type === 'pergi' && !isPergi)) t._missing = type;
+      if ((type === 'pulang' && isPergi) || (type === 'pergi' && !isPergi)) {
+        t._missing = type;
+        if (!repISO || t.departISO < repISO) repISO = t.departISO;
+      }
     });
-    summary.push({ type: type, departISO: arr[0].departISO, dateLabel: fmtDateShort(arr[0].departISO) });
+    if (repISO) summary.push({ type: type, departISO: repISO, dateLabel: fmtDateShort(repISO) });
   });
   summary.sort(function (a, b) { return a.departISO < b.departISO ? -1 : 1; });
   return summary;
