@@ -17,7 +17,7 @@
  *   TICKET_PASSWORD: password rahasia untuk dekripsi di web.
  *
  * Lalu: jalankan `setup()` sekali (authorize), pasang trigger time-driven
- * tiap 1 menit ke fungsi `syncTickets`.
+ * tiap 30 menit ke fungsi `syncTickets`.
  */
 
 var SEARCH_QUERY =
@@ -30,13 +30,13 @@ var BULAN = {
   'desember': 12
 };
 
-/** Entry point untuk trigger tiap 1 menit. */
+/** Entry point untuk trigger tiap 30 menit. */
 function syncTickets() {
   var props = PropertiesService.getScriptProperties();
   var tickets = collectTickets_();
 
   // Hash HANYA atas data tiket (tanpa generatedAt yang selalu berubah),
-  // supaya tak ada commit sampah tiap menit saat data tiket tidak berubah.
+  // supaya tak ada commit sampah tiap run saat data tiket tidak berubah.
   var hash = sha256Hex_(JSON.stringify(tickets));
   if (props.getProperty('LAST_HASH') === hash) {
     Logger.log('Tidak ada perubahan (%s tiket). Lewati push.', tickets.length);
@@ -53,7 +53,7 @@ function syncTickets() {
 /** Jalankan manual sekali untuk authorize + backfill + tes. */
 function setup() {
   syncTickets();
-  Logger.log('Setup selesai. Pasang trigger 1 menit ke syncTickets.');
+  Logger.log('Setup selesai. Pasang trigger 30 menit ke syncTickets.');
 }
 
 /* ----------------------------- Gmail -> data ----------------------------- */
