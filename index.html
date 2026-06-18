@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>E-Tiket AO Shuttle</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <!-- Layar login -->
+  <main id="login" class="login">
+    <form id="login-form" class="login-card" autocomplete="off">
+      <h1>E-Tiket AO Shuttle</h1>
+      <p class="muted">Masukkan password untuk membuka tiket.</p>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+      <label class="remember">
+        <input id="remember" type="checkbox" /> Ingat di perangkat ini
+      </label>
+      <button type="submit">Buka</button>
+      <p id="login-error" class="error" hidden></p>
+    </form>
+  </main>
+
+  <!-- Aplikasi -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <div class="topbar-left">
+        <strong>E-Tiket AO Shuttle</strong>
+        <span id="status" class="status muted"></span>
+      </div>
+      <div class="topbar-right">
+        <input id="search" type="search" placeholder="Cari kode / rute / nama / tanggal" />
+        <button id="refresh" title="Refresh sekarang">↻ Refresh</button>
+        <button id="logout" class="ghost">Keluar</button>
+      </div>
+    </header>
+
+    <section class="content">
+      <h2 class="section-title">Akan datang</h2>
+      <div id="upcoming" class="cards"></div>
+
+      <details id="archive-wrap" class="archive">
+        <summary><h2 class="section-title inline">Arsip (sudah lewat) <span id="archive-count" class="muted"></span></h2></summary>
+        <div id="archive" class="cards"></div>
+      </details>
+
+      <p id="empty" class="muted empty" hidden>Belum ada tiket.</p>
+    </section>
+  </div>
+
+  <!-- Modal detail -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <button class="modal-close" data-close aria-label="Tutup">×</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="assets/crypto-js.min.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
