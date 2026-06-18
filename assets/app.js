@@ -24,6 +24,7 @@ var pwInput = $('password'), rememberInput = $('remember'), loginError = $('logi
 var statusEl = $('status'), searchEl = $('search'), statsEl = $('stats');
 var themeToggle = $('theme-toggle');
 var upcomingEl = $('upcoming'), archiveEl = $('archive'), archiveWrap = $('archive-wrap');
+var returnWarnEl = $('return-warning');
 var archiveCountEl = $('archive-count'), emptyEl = $('empty');
 var modal = $('modal'), modalBody = $('modal-body');
 var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
@@ -135,11 +136,90 @@ function startPolling() {
 }
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
+/* ===== Tiket pulang belum dibeli =====
+ * Tiap hari = 2 tiket: pergi (berangkat DARI rumah) + pulang (kembali KE rumah).
+ * "Rumah" dideteksi otomatis: titik asal yang paling sering jadi keberangkatan
+ * pertama (paling pagi) di tiap tanggal. Untuk tiap tanggal *akan datang*, kalau
+ * ada pergi tapi tak ada pulang (atau sebaliknya), pasangannya ditandai kurang. */
+function normPoint(s) {
+  return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function dateKey(t) { return t.departISO ? t.departISO.slice(0, 10) : ''; }
+
+function detectHome(list) {
+  // Per tanggal, ambil tiket paling pagi; vote departurePoint-nya sebagai rumah.
+  var earliest = {};
+  list.forEach(function (t) {
+    var k = dateKey(t);
+    if (!k) return;
+    if (!earliest[k] || t.departISO < earliest[k].departISO) earliest[k] = t;
+  });
+  var votes = {}, best = null, bestN = 0;
+  Object.keys(earliest).forEach(function (k) {
+    var p = normPoint(earliest[k].departurePoint);
+    if (!p) return;
+    votes[p] = (votes[p] || 0) + 1;
+    if (votes[p] > bestN) { bestN = votes[p]; best = p; }
+  });
+  return best;
+}
+
+/* Set t._missing ('pulang' | 'pergi' | null) untuk tiket akan datang.
+ * Kembalikan ringkasan tanggal yang kurang: [{type, dateLabel, departISO}]. */
+function annotateMissing(list, home) {
+  list.forEach(function (t) { t._missing = null; });
+  if (!home) return [];
+  var now = Date.now();
+  var groups = {};
+  list.forEach(function (t) {
+    var k = dateKey(t);
+    if (!k) return;
+    var dep = Date.parse(t.departISO);
+    if (isNaN(dep) || dep < now) return; // hanya akan datang
+    (groups[k] = groups[k] || []).push(t);
+  });
+  var summary = [];
+  Object.keys(groups).forEach(function (k) {
+    var arr = groups[k];
+    var hasPergi = arr.some(function (t) { return normPoint(t.departurePoint) === home; });
+    var hasPulang = arr.some(function (t) { return normPoint(t.destinationPoint) === home; });
+    var type = null;
+    if (hasPergi && !hasPulang) type = 'pulang';
+    else if (hasPulang && !hasPergi) type = 'pergi';
+    if (!type) return;
+    // Tandai tiket yang sudah ada (pasangannya yang kurang).
+    arr.forEach(function (t) {
+      var isPergi = normPoint(t.departurePoint) === home;
+      if ((type === 'pulang' && isPergi) || (type === 'pergi' && !isPergi)) t._missing = type;
+    });
+    summary.push({ type: type, departISO: arr[0].departISO, dateLabel: fmtDateShort(arr[0].departISO) });
+  });
+  summary.sort(function (a, b) { return a.departISO < b.departISO ? -1 : 1; });
+  return summary;
+}
+
+function renderReturnWarning(summary) {
+  if (!summary.length) { returnWarnEl.hidden = true; returnWarnEl.innerHTML = ''; return; }
+  function line(items, kata) {
+    return '⚠️ ' + items.length + ' hari belum punya tiket <strong>' + kata + '</strong>: ' +
+      items.map(function (m) { return esc(m.dateLabel); }).join(', ');
+  }
+  var pulang = summary.filter(function (m) { return m.type === 'pulang'; });
+  var pergi = summary.filter(function (m) { return m.type === 'pergi'; });
+  var lines = [];
+  if (pulang.length) lines.push(line(pulang, 'pulang'));
+  if (pergi.length) lines.push(line(pergi, 'pergi'));
+  returnWarnEl.innerHTML = lines.map(function (l) { return '<div>' + l + '</div>'; }).join('');
+  returnWarnEl.hidden = false;
+}
+
 /* ===== Render ===== */
 function render() {
   var q = (searchEl.value || '').toLowerCase().trim();
   var now = Date.now();
   var upcoming = [], archive = [];
+
+  var missing = annotateMissing(tickets, detectHome(tickets));
 
   tickets.filter(function (t) { return matchQuery(t, q); }).forEach(function (t) {
     var dep = t.departISO ? Date.parse(t.departISO) : NaN;
@@ -157,6 +237,7 @@ function render() {
   archiveCountEl.textContent = archive.length ? '(' + archive.length + ')' : '';
   emptyEl.hidden = tickets.length !== 0;
 
+  renderReturnWarning(missing);
   renderStats();
   bindCards();
 }
@@ -201,11 +282,12 @@ function cardHtml(t) {
   var when = esc((t.departDate || '').replace(/\s*$/, '')) + (t.departTime ? ' · ' + esc(t.departTime) : '');
   var pax = (t.passengers || []).length;
   return '' +
-    '<article class="card" data-idx="' + idx + '">' +
+    '<article class="card' + (t._missing ? ' has-warn' : '') + '" data-idx="' + idx + '">' +
       '<div class="card-head">' +
         '<span class="card-route">' + routeCodes(t) + '</span>' +
         badge(t) +
       '</div>' +
+      (t._missing ? '<div class="card-warn">⚠️ Tiket ' + t._missing + ' belum dibeli</div>' : '') +
       '<div class="card-when">' + when + '</div>' +
       '<div class="muted">' + route + '</div>' +
       '<div class="card-meta">' +
@@ -378,6 +460,15 @@ function fmtDateTime(iso) {
       hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta'
     }).format(d) + ' WIB';
   } catch (e) { return d.toLocaleString(); }
+}
+function fmtDateShort(iso) {
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit', month: 'short', timeZone: 'Asia/Jakarta'
+    }).format(d);
+  } catch (e) { return iso; }
 }
 function fmtClock(ms) {
   var d = new Date(ms);
