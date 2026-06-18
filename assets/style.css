@@ -14,6 +14,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* atribut hidden harus menang atas display:grid/flex */
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--text); }
 .muted { color: var(--muted); }
