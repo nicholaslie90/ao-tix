@@ -237,8 +237,8 @@ function render() {
     return (Date.parse(b.departISO) || 0) - (Date.parse(a.departISO) || 0);
   });
 
-  upcomingEl.innerHTML = upcoming.map(cardHtml).join('');
-  archiveEl.innerHTML = archive.map(cardHtml).join('');
+  upcomingEl.innerHTML = dayGroupsHtml(upcoming);
+  archiveEl.innerHTML = archive.map(function (t) { return cardHtml(t, false); }).join('');
   archiveWrap.hidden = archive.length === 0;
   archiveCountEl.textContent = archive.length ? '(' + archive.length + ')' : '';
   emptyEl.hidden = tickets.length !== 0;
@@ -282,11 +282,32 @@ function matchQuery(t, q) {
   return hay.indexOf(q) >= 0;
 }
 
-function cardHtml(t) {
+/* Kelompokkan tiket (sudah terurut) per tanggal, beri header tanggal. */
+function dayGroupsHtml(list) {
+  var order = [], byKey = {};
+  list.forEach(function (t) {
+    var k = dateKey(t) || '(tanpa tanggal)';
+    if (!byKey[k]) { byKey[k] = []; order.push(k); }
+    byKey[k].push(t);
+  });
+  return order.map(function (k) {
+    var arr = byKey[k];
+    var head = esc((arr[0].departDate || k).replace(/\s*$/, ''));
+    var warn = arr.some(function (t) { return t._missing; });
+    return '<section class="day-group' + (warn ? ' day-warn' : '') + '">' +
+      '<h3 class="day-head">' + head + '</h3>' +
+      '<div class="cards">' + arr.map(function (t) { return cardHtml(t, true); }).join('') + '</div>' +
+    '</section>';
+  }).join('');
+}
+
+function cardHtml(t, hideDate) {
   var idx = tickets.indexOf(t);
   var route = esc(t.departurePoint || routeFromPax(t)) + ' → ' + esc(t.destinationPoint || '');
-  var when = esc((t.departDate || '').replace(/\s*$/, '')) +
-    (t.departTime ? ' · <span class="card-time">' + esc(t.departTime) + '</span>' : '');
+  var timePart = t.departTime ? '<span class="card-time">' + esc(t.departTime) + '</span>' : '';
+  var when = hideDate
+    ? timePart
+    : (esc((t.departDate || '').replace(/\s*$/, '')) + (timePart ? ' · ' + timePart : ''));
   var pax = (t.passengers || []).length;
   return '' +
     '<article class="card' + (t._missing ? ' has-warn' : '') + '" data-idx="' + idx + '">' +
