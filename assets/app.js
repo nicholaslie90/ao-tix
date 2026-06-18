@@ -285,7 +285,8 @@ function matchQuery(t, q) {
 function cardHtml(t) {
   var idx = tickets.indexOf(t);
   var route = esc(t.departurePoint || routeFromPax(t)) + ' → ' + esc(t.destinationPoint || '');
-  var when = esc((t.departDate || '').replace(/\s*$/, '')) + (t.departTime ? ' · ' + esc(t.departTime) : '');
+  var when = esc((t.departDate || '').replace(/\s*$/, '')) +
+    (t.departTime ? ' · <span class="card-time">' + esc(t.departTime) + '</span>' : '');
   var pax = (t.passengers || []).length;
   return '' +
     '<article class="card' + (t._missing ? ' has-warn' : '') + '" data-idx="' + idx + '">' +
@@ -299,7 +300,6 @@ function cardHtml(t) {
       '<div class="card-meta">' +
         '<span class="kode">' + esc(t.bookingCode || '') + '</span>' +
         '<span>' + pax + ' penumpang</span>' +
-        '<span>' + esc(t.totalBayar || '') + '</span>' +
       '</div>' +
     '</article>';
 }
