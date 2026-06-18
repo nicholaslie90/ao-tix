@@ -22,6 +22,7 @@ var $ = function (id) { return document.getElementById(id); };
 var loginEl = $('login'), appEl = $('app'), loginForm = $('login-form');
 var pwInput = $('password'), rememberInput = $('remember'), loginError = $('login-error');
 var statusEl = $('status'), searchEl = $('search'), statsEl = $('stats');
+var datepickerEl = $('datepicker');
 var themeToggle = $('theme-toggle');
 var upcomingEl = $('upcoming'), archiveEl = $('archive'), archiveWrap = $('archive-wrap');
 var returnWarnEl = $('return-warning');
@@ -294,7 +295,7 @@ function dayGroupsHtml(list) {
     var arr = byKey[k];
     var head = esc((arr[0].departDate || k).replace(/\s*$/, ''));
     var warn = arr.some(function (t) { return t._missing; });
-    return '<section class="day-group' + (warn ? ' day-warn' : '') + '">' +
+    return '<section class="day-group' + (warn ? ' day-warn' : '') + '" data-date="' + esc(k) + '">' +
       '<h3 class="day-head">' + head + '</h3>' +
       '<div class="cards">' + arr.map(function (t) { return cardHtml(t, true); }).join('') + '</div>' +
     '</section>';
@@ -310,7 +311,7 @@ function cardHtml(t, hideDate) {
     : (esc((t.departDate || '').replace(/\s*$/, '')) + (timePart ? ' · ' + timePart : ''));
   var pax = (t.passengers || []).length;
   return '' +
-    '<article class="card' + (t._missing ? ' has-warn' : '') + '" data-idx="' + idx + '">' +
+    '<article class="card' + (t._missing ? ' has-warn' : '') + '" data-idx="' + idx + '" data-date="' + esc(dateKey(t)) + '">' +
       '<div class="card-head">' +
         '<span class="card-route">' + routeCodes(t) + '</span>' +
         badge(t) +
@@ -527,8 +528,46 @@ if (themeToggle) themeToggle.addEventListener('click', function () {
   applyTheme(next);
 });
 
+/* ===== Loncat ke tanggal (datepicker) ===== */
+function jumpToDate(val) {
+  if (!val) return;
+  // Kalau pencarian aktif, kosongkan dulu supaya target tidak tersembunyi.
+  if (searchEl.value) { searchEl.value = ''; render(); }
+
+  var anchors = Array.prototype.slice.call(document.querySelectorAll('[data-date]'))
+    .filter(function (el) { return el.getAttribute('data-date'); });
+  if (!anchors.length) return;
+
+  // Cari kecocokan persis; kalau tak ada, ambil tanggal terdekat yang punya tiket.
+  var target = anchors.filter(function (el) { return el.getAttribute('data-date') === val; })[0];
+  if (!target) {
+    var goal = Date.parse(val + 'T00:00:00+07:00');
+    var best = null, bestDiff = Infinity;
+    anchors.forEach(function (el) {
+      var d = Date.parse(el.getAttribute('data-date') + 'T00:00:00+07:00');
+      if (isNaN(d)) return;
+      var diff = Math.abs(d - goal);
+      if (diff < bestDiff) { bestDiff = diff; best = el; }
+    });
+    target = best;
+    if (target) {
+      statusEl.textContent = 'Tak ada tiket ' + val + ', loncat ke ' +
+        target.getAttribute('data-date');
+    }
+  }
+  if (!target) return;
+
+  // Buka panel arsip kalau target ada di dalamnya, lalu scroll + sorot.
+  if (archiveWrap.contains(target)) archiveWrap.open = true;
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  target.classList.remove('jump-flash');
+  void target.offsetWidth; // restart animasi
+  target.classList.add('jump-flash');
+}
+
 /* ===== Event lainnya ===== */
 searchEl.addEventListener('input', render);
+datepickerEl.addEventListener('change', function () { jumpToDate(this.value); });
 $('refresh').addEventListener('click', function () {
   statusEl.textContent = 'menyegarkan…';
   loadData(true).catch(function () { updateStatus(); });

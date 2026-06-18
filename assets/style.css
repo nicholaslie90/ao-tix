@@ -71,6 +71,7 @@ button { cursor: pointer; font: inherit; }
 }
 .topbar-right button:hover { border-color: var(--accent); }
 .topbar-right .ghost { background: transparent; }
+.topbar-right #datepicker { min-width: 0; max-width: 150px; }
 
 /* ----- Content ----- */
 .content { max-width: 980px; margin: 0 auto; padding: 22px 18px 60px; }
@@ -88,6 +89,12 @@ button { cursor: pointer; font: inherit; }
   margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
 }
 .day-group.day-warn .day-head { color: var(--warn); border-color: var(--warn); }
+.day-group, .card { scroll-margin-top: 76px; } /* jangan ketutup topbar sticky */
+.jump-flash { animation: jumpFlash 1.8s ease-out; border-radius: var(--radius); }
+@keyframes jumpFlash {
+  0%, 30% { box-shadow: 0 0 0 3px var(--accent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
 .card {
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 16px; cursor: pointer; transition: border-color .15s, transform .05s;
