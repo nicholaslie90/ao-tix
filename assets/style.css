@@ -78,8 +78,23 @@ button { cursor: pointer; font: inherit; }
 .section-title { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 18px 0 12px; }
 .section-title.inline { display: inline; }
 .archive { margin-top: 24px; }
-.archive summary { cursor: pointer; list-style: none; }
+.archive summary {
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 16px; transition: border-color .15s, background .15s;
+}
+.archive summary:hover { border-color: var(--accent); background: var(--panel); }
 .archive summary::-webkit-details-marker { display: none; }
+.archive summary .section-title { margin: 0; }
+/* Chevron kanan: menunjuk bawah saat tertutup, ke atas saat terbuka. */
+.archive summary::after {
+  content: ''; flex: none; width: 9px; height: 9px; margin-top: -3px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg); transition: transform .18s;
+}
+.archive[open] summary::after { transform: rotate(225deg); margin-top: 3px; }
+.archive[open] summary { border-color: var(--accent); }
 .empty { text-align: center; padding: 40px; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
