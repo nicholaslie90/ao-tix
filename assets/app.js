@@ -29,6 +29,7 @@ var returnWarnEl = $('return-warning');
 var archiveCountEl = $('archive-count'), emptyEl = $('empty');
 var modal = $('modal'), modalBody = $('modal-body');
 var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
+var lightboxPrev = $('lightbox-prev'), lightboxNext = $('lightbox-next');
 
 /* ===== Crypto (cocok dengan Apps Script) ===== */
 function decryptPayload(blob, pw) {
@@ -364,25 +365,69 @@ modal.addEventListener('click', function (e) {
 });
 
 /* ===== Lightbox QR/barcode ===== */
-function openLightbox(src, cap) {
-  lightboxImg.src = src;
-  lightboxCap.textContent = cap || '';
+var lbItems = [];   // daftar QR yang sedang dibuka: [{ src, cap }]
+var lbIndex = 0;
+
+function renderLightbox() {
+  var item = lbItems[lbIndex];
+  if (!item) return;
+  lightboxImg.src = item.src;
+  lightboxCap.textContent = item.cap || '';
+  var multi = lbItems.length > 1;
+  lightboxPrev.hidden = !multi;
+  lightboxNext.hidden = !multi;
+}
+function openLightbox(index) {
+  if (!lbItems.length) return;
+  lbIndex = (index + lbItems.length) % lbItems.length;
+  renderLightbox();
   lightbox.hidden = false;
 }
-function closeLightbox() { lightbox.hidden = true; lightboxImg.src = ''; }
+function lbStep(delta) {
+  if (lbItems.length < 2) return;
+  lbIndex = (lbIndex + delta + lbItems.length) % lbItems.length;
+  renderLightbox();
+}
+function closeLightbox() { lightbox.hidden = true; lightboxImg.src = ''; lbItems = []; }
 
 modalBody.addEventListener('click', function (e) {
   var img = e.target.closest && e.target.closest('img.pax-qr');
-  if (img) openLightbox(img.getAttribute('src'), img.getAttribute('data-cap'));
+  if (!img) return;
+  var imgs = Array.prototype.slice.call(modalBody.querySelectorAll('img.pax-qr'));
+  lbItems = imgs.map(function (el) {
+    return { src: el.getAttribute('src'), cap: el.getAttribute('data-cap') };
+  });
+  openLightbox(imgs.indexOf(img));
 });
 lightbox.addEventListener('click', function (e) {
-  if (e.target.hasAttribute('data-close-lb')) closeLightbox();
+  if (e.target.hasAttribute('data-close-lb')) { closeLightbox(); return; }
+  if (e.target.hasAttribute('data-lb-prev')) { lbStep(-1); return; }
+  if (e.target.hasAttribute('data-lb-next')) { lbStep(1); return; }
 });
 
+/* Swipe untuk geser antar QR (sentuh layar) */
+var lbTouchX = null, lbTouchY = null;
+lightbox.addEventListener('touchstart', function (e) {
+  if (e.touches.length !== 1) { lbTouchX = null; return; }
+  lbTouchX = e.touches[0].clientX;
+  lbTouchY = e.touches[0].clientY;
+}, { passive: true });
+lightbox.addEventListener('touchend', function (e) {
+  if (lbTouchX === null) return;
+  var t = e.changedTouches[0];
+  var dx = t.clientX - lbTouchX, dy = t.clientY - lbTouchY;
+  lbTouchX = null;
+  if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) lbStep(dx < 0 ? 1 : -1);
+}, { passive: true });
+
 document.addEventListener('keydown', function (e) {
-  if (e.key !== 'Escape') return;
-  if (!lightbox.hidden) closeLightbox();
-  else if (!modal.hidden) closeModal();
+  if (!lightbox.hidden) {
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowLeft') lbStep(-1);
+    else if (e.key === 'ArrowRight') lbStep(1);
+    return;
+  }
+  if (e.key === 'Escape' && !modal.hidden) closeModal();
 });
 
 function detailHtml(t) {

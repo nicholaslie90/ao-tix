@@ -203,7 +203,22 @@ a { color: var(--accent); }
   width: min(86vw, 420px); height: auto; image-rendering: pixelated;
 }
 .lightbox-fig figcaption { color: #fff; margin-top: 12px; font-size: 15px; }
-.lightbox-close { position: absolute; top: 14px; right: 18px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; }
+.lightbox-close { position: absolute; top: 14px; right: 18px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; }
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 48px; height: 48px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,.15); color: #fff; font-size: 32px; line-height: 1;
+  display: grid; place-items: center; cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent; transition: background .15s;
+}
+.lightbox-nav:hover { background: rgba(255,255,255,.3); }
+.lightbox-prev { left: 16px; }
+.lightbox-next { right: 16px; }
+@media (max-width: 520px) {
+  .lightbox-nav { width: 42px; height: 42px; font-size: 28px; }
+  .lightbox-prev { left: 8px; }
+  .lightbox-next { right: 8px; }
+}
 
 @media (max-width: 520px) {
   .kv { grid-template-columns: 110px 1fr; }
