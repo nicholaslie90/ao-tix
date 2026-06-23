@@ -118,6 +118,21 @@ function showApp() {
   loginEl.hidden = true;
   appEl.hidden = false;
   startPolling();
+  // Begitu berhasil login, langsung buka detail trip berikutnya (yang paling dekat).
+  var next = nextUpcomingTicket();
+  if (next) openModal(next);
+}
+
+/* Tiket akan datang paling dekat (belum berangkat). null kalau tak ada. */
+function nextUpcomingTicket() {
+  var now = Date.now();
+  var best = null, bestDep = Infinity;
+  tickets.forEach(function (t) {
+    var dep = Date.parse(t.departISO);
+    if (isNaN(dep) || dep < now) return;
+    if (dep < bestDep) { bestDep = dep; best = t; }
+  });
+  return best;
 }
 
 function logout() {
