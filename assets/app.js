@@ -118,9 +118,13 @@ function showApp() {
   loginEl.hidden = true;
   appEl.hidden = false;
   startPolling();
-  // Begitu berhasil login, langsung buka detail trip berikutnya (yang paling dekat).
+  // Begitu berhasil login, langsung buka detail trip berikutnya (yang paling dekat)
+  // dan tampilkan QR-nya dalam lightbox, seolah QR-nya sudah diketuk.
   var next = nextUpcomingTicket();
-  if (next) openModal(next);
+  if (next) {
+    openModal(next);
+    openLightboxFromModal(0);
+  }
 }
 
 /* Tiket akan datang paling dekat (belum berangkat). null kalau tak ada. */
@@ -405,14 +409,22 @@ function lbStep(delta) {
 }
 function closeLightbox() { lightbox.hidden = true; lightboxImg.src = ''; lbItems = []; }
 
+/* Kumpulkan semua QR di modal lalu buka lightbox pada index tertentu.
+ * Dipakai saat QR diketuk maupun otomatis setelah login. */
+function openLightboxFromModal(index) {
+  var imgs = Array.prototype.slice.call(modalBody.querySelectorAll('img.pax-qr'));
+  if (!imgs.length) return;
+  lbItems = imgs.map(function (el) {
+    return { src: el.getAttribute('src'), cap: el.getAttribute('data-cap') };
+  });
+  openLightbox(index);
+}
+
 modalBody.addEventListener('click', function (e) {
   var img = e.target.closest && e.target.closest('img.pax-qr');
   if (!img) return;
   var imgs = Array.prototype.slice.call(modalBody.querySelectorAll('img.pax-qr'));
-  lbItems = imgs.map(function (el) {
-    return { src: el.getAttribute('src'), cap: el.getAttribute('data-cap') };
-  });
-  openLightbox(imgs.indexOf(img));
+  openLightboxFromModal(imgs.indexOf(img));
 });
 lightbox.addEventListener('click', function (e) {
   if (e.target.hasAttribute('data-close-lb')) { closeLightbox(); return; }
