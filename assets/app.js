@@ -413,9 +413,10 @@ function renderLightbox() {
   var item = lbItems[lbIndex];
   if (!item) return;
   lightboxImg.src = item.src;
-  // Nama di atas, lalu nomor kursi pada baris tersendiri di bawahnya.
+  // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
   lightboxCap.innerHTML = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
-    (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '');
+    (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
+    (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '');
   var multi = lbItems.length > 1;
   lightboxPrev.hidden = !multi;
   lightboxNext.hidden = !multi;
@@ -442,7 +443,8 @@ function openLightboxFromModal(index) {
     return {
       src: el.getAttribute('src'),
       name: el.getAttribute('data-name'),
-      seat: el.getAttribute('data-seat')
+      seat: el.getAttribute('data-seat'),
+      when: el.getAttribute('data-when')
     };
   });
   openLightbox(index);
@@ -517,7 +519,7 @@ function detailHtml(t) {
     ])) +
 
     section('Penumpang', (t.passengers || []).length
-      ? '<div class="pax-grid">' + (t.passengers || []).map(paxHtml).join('') + '</div>'
+      ? '<div class="pax-grid">' + (t.passengers || []).map(function (p) { return paxHtml(p, t); }).join('') + '</div>'
       : '<p class="muted">—</p>') +
 
     section('Harga', pricesHtml(t)) +
@@ -528,11 +530,14 @@ function detailHtml(t) {
     ]));
 }
 
-function paxHtml(p) {
+function paxHtml(p, t) {
+  t = t || {};
+  var when = (t.departDate || '') + (t.departTime ? ' · ' + t.departTime : '');
   var img = '';
   if (p.barcodeUrl) {
     img = '<img class="pax-qr" src="' + esc(p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
-      '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') + '" />' +
+      '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') +
+      '" data-when="' + esc(when) + '" />' +
       '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';
   }
   return '<div class="pax">' +
