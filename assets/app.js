@@ -512,7 +512,9 @@ function detailHtml(t) {
       ['Jam', esc(t.departTime)]
     ])) +
 
-    section('Penumpang', (t.passengers || []).map(paxHtml).join('') || '<p class="muted">—</p>') +
+    section('Penumpang', (t.passengers || []).length
+      ? '<div class="pax-grid">' + (t.passengers || []).map(paxHtml).join('') + '</div>'
+      : '<p class="muted">—</p>') +
 
     section('Harga', pricesHtml(t)) +
 

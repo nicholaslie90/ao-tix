@@ -173,11 +173,13 @@ button { cursor: pointer; font: inherit; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; word-break: break-word; }
 .otp { font-family: ui-monospace, monospace; font-size: 18px; font-weight: 700; color: var(--ok); }
+.pax-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .pax { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+.pax-grid .pax { margin-bottom: 0; }
 .pax-name { font-weight: 600; }
 .pax img {
-  display: block; width: 100%; max-width: 320px; margin-top: 10px;
-  background: #fff; padding: 10px; border-radius: 6px; cursor: zoom-in;
+  display: block; width: 100%; max-width: 100%; margin-top: 10px;
+  background: #fff; padding: 8px; border-radius: 6px; cursor: zoom-in;
   image-rendering: pixelated; /* barcode/QR tetap tajam saat diperbesar */
 }
 .pax .zoom-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
