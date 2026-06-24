@@ -413,7 +413,9 @@ function renderLightbox() {
   var item = lbItems[lbIndex];
   if (!item) return;
   lightboxImg.src = item.src;
-  lightboxCap.textContent = item.cap || '';
+  // Nama di atas, lalu nomor kursi pada baris tersendiri di bawahnya.
+  lightboxCap.innerHTML = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
+    (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '');
   var multi = lbItems.length > 1;
   lightboxPrev.hidden = !multi;
   lightboxNext.hidden = !multi;
@@ -437,7 +439,11 @@ function openLightboxFromModal(index) {
   var imgs = Array.prototype.slice.call(modalBody.querySelectorAll('img.pax-qr'));
   if (!imgs.length) return;
   lbItems = imgs.map(function (el) {
-    return { src: el.getAttribute('src'), cap: el.getAttribute('data-cap') };
+    return {
+      src: el.getAttribute('src'),
+      name: el.getAttribute('data-name'),
+      seat: el.getAttribute('data-seat')
+    };
   });
   openLightbox(index);
 }
@@ -520,7 +526,7 @@ function paxHtml(p) {
   var img = '';
   if (p.barcodeUrl) {
     img = '<img class="pax-qr" src="' + esc(p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
-      '" loading="lazy" data-cap="' + esc((p.name || '') + ' · Kursi ' + (p.seat || '')) + '" />' +
+      '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') + '" />' +
       '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';
   }
   return '<div class="pax">' +
