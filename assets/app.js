@@ -490,6 +490,10 @@ function detailHtml(t) {
     '<h2 class="detail-route">' + routeCodes(t) + '</h2>' +
     '<p class="detail-when">' + esc(t.departDate || '') + (t.departTime ? ' · ' + esc(t.departTime) : '') + '</p>' +
 
+    (t._missing
+      ? '<div class="banner-warn">⚠️ Tiket <strong>' + esc(t._missing) + '</strong> belum dibeli untuk tanggal ini</div>'
+      : '') +
+
     section('Pemesanan', kv([
       ['Kode Booking', '<span class="kode">' + esc(t.bookingCode) + '</span>'],
       ['Tanggal Booking', esc(t.bookingDate)],
