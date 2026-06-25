@@ -29,6 +29,7 @@ var returnWarnEl = $('return-warning');
 var archiveCountEl = $('archive-count'), emptyEl = $('empty');
 var modal = $('modal'), modalBody = $('modal-body');
 var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
+var lightboxCard = $('lightbox-card');
 var lightboxPrev = $('lightbox-prev'), lightboxNext = $('lightbox-next');
 
 /* ===== Crypto (cocok dengan Apps Script) ===== */
@@ -414,9 +415,11 @@ function renderLightbox() {
   if (!item) return;
   lightboxImg.src = item.src;
   // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
-  lightboxCap.innerHTML = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
+  var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
     (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
     (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '');
+  lightboxCap.innerHTML = capHtml;
+  lightboxCap.hidden = !capHtml;
   var multi = lbItems.length > 1;
   lightboxPrev.hidden = !multi;
   lightboxNext.hidden = !multi;
@@ -425,14 +428,57 @@ function openLightbox(index) {
   if (!lbItems.length) return;
   lbIndex = (index + lbItems.length) % lbItems.length;
   renderLightbox();
+  lbSetTransform(0, 0, 'none');   // mulai dari tengah, tanpa sisa animasi
+  lbAnimating = false;
   lightbox.hidden = false;
 }
-function lbStep(delta) {
-  if (lbItems.length < 2) return;
-  lbIndex = (lbIndex + delta + lbItems.length) % lbItems.length;
-  renderLightbox();
-}
 function closeLightbox() { lightbox.hidden = true; lightboxImg.src = ''; lbItems = []; }
+
+/* ---- Animasi swipe ala kartu ---- */
+var lbAnimating = false;
+var LB_SWIPE = 60;          // ambang geser (px) untuk pindah kartu
+var LB_ROT = 0.06;          // derajat kemiringan per px geser
+
+function lbReduce() {
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+function lbSetTransform(x, deg, transition) {
+  lightboxCard.style.transition = transition || 'none';
+  lightboxCard.style.transform = 'translateX(' + x + 'px) rotate(' + deg + 'deg)';
+}
+function lbOnce(cb) {                       // jalankan cb sekali saat transisi transform selesai
+  var done = false;
+  function fire() { if (done) return; done = true; lightboxCard.removeEventListener('transitionend', fire); cb(); }
+  lightboxCard.addEventListener('transitionend', fire);
+}
+// Pegas balik ke tengah (efek elastis ringan) — dipakai saat geseran kurang jauh / hanya 1 kartu.
+function lbSpringBack() {
+  if (lbReduce()) { lbSetTransform(0, 0, 'none'); return; }
+  lbSetTransform(0, 0, 'transform .38s cubic-bezier(.34,1.56,.64,1)');
+}
+// Pindah kartu dengan animasi: kartu lama terbang keluar, kartu baru masuk dari sisi seberang.
+// dir = 1 (berikutnya, terbang ke kiri) atau -1 (sebelumnya, terbang ke kanan).
+function lbCommit(dir) {
+  if (lbItems.length < 2) { lbSpringBack(); return; }
+  if (lbAnimating) return;
+  if (lbReduce()) {
+    lbIndex = (lbIndex + dir + lbItems.length) % lbItems.length;
+    renderLightbox();
+    lbSetTransform(0, 0, 'none');
+    return;
+  }
+  lbAnimating = true;
+  var span = Math.max(window.innerWidth, 600) * 1.1;
+  lbSetTransform(-dir * span, -dir * 18, 'transform .26s ease-in');   // terbang keluar
+  lbOnce(function () {
+    lbIndex = (lbIndex + dir + lbItems.length) % lbItems.length;
+    renderLightbox();
+    lbSetTransform(dir * span, dir * 18, 'none');                     // taruh di sisi seberang
+    void lightboxCard.offsetWidth;                                    // paksa reflow
+    lbSetTransform(0, 0, 'transform .32s cubic-bezier(.22,1,.36,1)'); // masuk ke tengah
+    lbOnce(function () { lbAnimating = false; lightboxCard.style.transition = ''; });
+  });
+}
 
 /* Kumpulkan semua QR di modal lalu buka lightbox pada index tertentu.
  * Dipakai saat QR diketuk maupun otomatis setelah login. */
@@ -458,30 +504,47 @@ modalBody.addEventListener('click', function (e) {
 });
 lightbox.addEventListener('click', function (e) {
   if (e.target.hasAttribute('data-close-lb')) { closeLightbox(); return; }
-  if (e.target.hasAttribute('data-lb-prev')) { lbStep(-1); return; }
-  if (e.target.hasAttribute('data-lb-next')) { lbStep(1); return; }
+  if (e.target.hasAttribute('data-lb-prev')) { lbCommit(-1); return; }
+  if (e.target.hasAttribute('data-lb-next')) { lbCommit(1); return; }
 });
 
-/* Swipe untuk geser antar QR (sentuh layar) */
-var lbTouchX = null, lbTouchY = null;
-lightbox.addEventListener('touchstart', function (e) {
-  if (e.touches.length !== 1) { lbTouchX = null; return; }
-  lbTouchX = e.touches[0].clientX;
-  lbTouchY = e.touches[0].clientY;
-}, { passive: true });
-lightbox.addEventListener('touchend', function (e) {
-  if (lbTouchX === null) return;
-  var t = e.changedTouches[0];
-  var dx = t.clientX - lbTouchX, dy = t.clientY - lbTouchY;
-  lbTouchX = null;
-  if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) lbStep(dx < 0 ? 1 : -1);
-}, { passive: true });
+/* Drag kartu (sentuh + mouse) lewat Pointer Events — kartu mengikuti jari,
+ * lalu terbang keluar bila digeser cukup jauh, atau pegas balik bila tidak. */
+var lbDrag = null;
+lightboxCard.addEventListener('pointerdown', function (e) {
+  if (lbAnimating) return;
+  if (e.button != null && e.button > 0) return;   // hanya tombol kiri/sentuh
+  lbDrag = { x0: e.clientX, y0: e.clientY, dx: 0, active: false, id: e.pointerId };
+});
+lightboxCard.addEventListener('pointermove', function (e) {
+  if (!lbDrag || e.pointerId !== lbDrag.id) return;
+  var dx = e.clientX - lbDrag.x0, dy = e.clientY - lbDrag.y0;
+  if (!lbDrag.active) {
+    if (Math.abs(dx) < 6) return;                  // belum cukup untuk dianggap drag
+    if (Math.abs(dy) > Math.abs(dx)) { lbDrag = null; return; }  // gerak vertikal → abaikan
+    lbDrag.active = true;
+    try { lightboxCard.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+  lbDrag.dx = dx;
+  lbSetTransform(dx, dx * LB_ROT, 'none');
+  e.preventDefault();
+});
+function lbEndDrag(e) {
+  if (!lbDrag || (e.pointerId != null && e.pointerId !== lbDrag.id)) return;
+  var dx = lbDrag.dx, active = lbDrag.active;
+  lbDrag = null;
+  if (!active) return;
+  if (Math.abs(dx) > LB_SWIPE && lbItems.length > 1) lbCommit(dx < 0 ? 1 : -1);
+  else lbSpringBack();
+}
+lightboxCard.addEventListener('pointerup', lbEndDrag);
+lightboxCard.addEventListener('pointercancel', lbEndDrag);
 
 document.addEventListener('keydown', function (e) {
   if (!lightbox.hidden) {
     if (e.key === 'Escape') closeLightbox();
-    else if (e.key === 'ArrowLeft') lbStep(-1);
-    else if (e.key === 'ArrowRight') lbStep(1);
+    else if (e.key === 'ArrowLeft') lbCommit(-1);
+    else if (e.key === 'ArrowRight') lbCommit(1);
     return;
   }
   if (e.key === 'Escape' && !modal.hidden) closeModal();

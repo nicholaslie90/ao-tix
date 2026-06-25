@@ -200,14 +200,24 @@ a { color: var(--accent); }
 .lightbox { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; }
 .lightbox-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.85); }
 .lightbox-fig { position: relative; margin: 0; text-align: center; }
-.lightbox-fig img {
-  background: #fff; padding: 18px; border-radius: 10px;
-  width: min(86vw, 420px); height: auto; image-rendering: pixelated;
+.lightbox-card {
+  background: #fff; border-radius: 18px; padding: 18px;
+  width: min(82vw, 360px); max-width: 92vw;
+  box-shadow: 0 22px 60px rgba(0,0,0,.55);
+  touch-action: none; cursor: grab; will-change: transform;
+  user-select: none; -webkit-user-select: none;
 }
-.lightbox-fig figcaption { color: #fff; margin-top: 12px; font-size: 15px; }
-.lightbox-fig figcaption .lb-cap-name { display: block; }
-.lightbox-fig figcaption .lb-cap-seat { display: block; margin-top: 4px; font-size: 18px; font-weight: 700; }
-.lightbox-fig figcaption .lb-cap-when { display: block; margin-top: 4px; font-size: 14px; opacity: .85; }
+.lightbox-card:active { cursor: grabbing; }
+.lightbox-card-qr {
+  display: block; width: 100%; height: auto;
+  image-rendering: pixelated; border-radius: 8px; -webkit-user-drag: none;
+}
+.lightbox-card-cap { color: #111; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid #eee; }
+.lightbox-card-cap[hidden] { display: none; }
+.lightbox-card-cap .lb-cap-name { display: block; font-weight: 600; font-size: 16px; }
+.lightbox-card-cap .lb-cap-seat { display: block; margin-top: 4px; font-size: 18px; font-weight: 700; }
+.lightbox-card-cap .lb-cap-when { display: block; margin-top: 4px; font-size: 14px; color: #666; }
+@media (prefers-reduced-motion: reduce) { .lightbox-card { transition: none !important; } }
 .lightbox-close { position: absolute; top: 14px; right: 18px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; }
 .lightbox-nav {
   position: absolute; top: 50%; transform: translateY(-50%);
