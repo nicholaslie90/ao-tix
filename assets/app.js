@@ -371,10 +371,19 @@ function routeFromPax(t) {
   return p ? p.route : '';
 }
 
-function shuttleText(t) {
-  var a = t.shuttleCodePergi || '', b = t.shuttleCodePulang || '';
-  if (a && b && a !== b) return a + ' / ' + b;
-  return a || b || '';
+function shuttleCodes(t) {
+  var out = [], a = t.shuttleCodePergi || '', b = t.shuttleCodePulang || '';
+  if (a) out.push(a);
+  if (b && b !== a) out.push(b);
+  return out;
+}
+function shuttleText(t) { return shuttleCodes(t).join(' / '); }
+function shuttleLinksHtml(t) {
+  return shuttleCodes(t).map(function (c) {
+    return '<a class="kode" href="https://eta.transtrack.id/aoshuttle/map/' +
+      encodeURIComponent(c) + '" target="_blank" rel="noopener" title="Lacak posisi shuttle">' +
+      esc(c) + ' 🛰️</a>';
+  }).join(' · ');
 }
 
 function badge(t) {
@@ -586,8 +595,8 @@ function detailHtml(t) {
       ['Maps', mapLink(t.destinationMaps)],
       ['Tanggal', esc(t.departDate)],
       ['Jam', esc(t.departTime)]
-    ].concat(shuttleText(t)
-      ? [['Kode Shuttle', '<span class="kode">' + esc(shuttleText(t)) + '</span>']]
+    ].concat(shuttleCodes(t).length
+      ? [['Kode Shuttle', shuttleLinksHtml(t)]]
       : []))) +
 
     section('Penumpang', (t.passengers || []).length
