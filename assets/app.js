@@ -753,6 +753,14 @@ datepickerEl.addEventListener('change', function () {
   }
   jumpToDate(this.value);
 });
+
+/* Desktop: klik body input type=date tak membuka kalender (hanya ikonnya, yang
+   kita sembunyikan via opacity:0). Paksa buka lewat showPicker() saat field diklik. */
+datepickerEl.addEventListener('click', function () {
+  if (typeof this.showPicker === 'function') {
+    try { this.showPicker(); } catch (e) { /* abaikan: butuh user gesture / sudah terbuka */ }
+  }
+});
 $('logout').addEventListener('click', logout);
 
 /* ===== Init ===== */
