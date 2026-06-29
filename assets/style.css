@@ -151,6 +151,7 @@ button { cursor: pointer; font: inherit; }
 .banner-warn div + div { margin-top: 4px; }
 .card-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
 .kode { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+.shuttle { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ok); font-weight: 600; white-space: nowrap; }
 
 /* ----- Modal ----- */
 .modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 18px; }

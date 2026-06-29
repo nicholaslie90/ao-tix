@@ -355,6 +355,7 @@ function cardHtml(t, hideDate) {
       '<div class="muted">' + route + '</div>' +
       '<div class="card-meta">' +
         '<span class="kode">' + esc(t.bookingCode || '') + '</span>' +
+        (shuttleText(t) ? '<span class="shuttle">🚐 ' + esc(shuttleText(t)) + '</span>' : '') +
         '<span>' + pax + ' penumpang</span>' +
       '</div>' +
     '</article>';
@@ -368,6 +369,12 @@ function routeCodes(t) {
 function routeFromPax(t) {
   var p = (t.passengers && t.passengers[0]);
   return p ? p.route : '';
+}
+
+function shuttleText(t) {
+  var a = t.shuttleCodePergi || '', b = t.shuttleCodePulang || '';
+  if (a && b && a !== b) return a + ' / ' + b;
+  return a || b || '';
 }
 
 function badge(t) {
@@ -579,7 +586,9 @@ function detailHtml(t) {
       ['Maps', mapLink(t.destinationMaps)],
       ['Tanggal', esc(t.departDate)],
       ['Jam', esc(t.departTime)]
-    ])) +
+    ].concat(shuttleText(t)
+      ? [['Kode Shuttle', '<span class="kode">' + esc(shuttleText(t)) + '</span>']]
+      : []))) +
 
     section('Penumpang', (t.passengers || []).length
       ? '<div class="pax-grid">' + (t.passengers || []).map(function (p) { return paxHtml(p, t); }).join('') + '</div>'
