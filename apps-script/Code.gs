@@ -332,8 +332,9 @@ function enrichShuttleCodes_(tickets) {
   var filled = 0;
   due.forEach(function (t) {
     var c = fetchShuttleCode_(t.bookingCode, token);
-    if (c.pergi) { t.shuttleCodePergi = c.pergi; filled++; }
+    if (c.pergi) { t.shuttleCodePergi = c.pergi; }
     if (c.pulang) { t.shuttleCodePulang = c.pulang; }
+    if (c.pergi || c.pulang) { filled++; }
   });
   Logger.log('Enrich: %s booking dicek, %s dapat kode shuttle.', due.length, filled);
 }
