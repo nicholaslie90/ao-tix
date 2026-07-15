@@ -24,11 +24,6 @@ var SEARCH_QUERY =
   'from:no-reply@mg.tiketux.com subject:"Tiket Elektronik AO Shuttle"';
 var PBKDF2_ITERATIONS = 100000;
 
-// Enrich kode shuttle (kode_kendaraan) hanya untuk booking dalam jendela ini —
-// armada baru di-assign menjelang berangkat, jadi tak perlu cek booking jauh.
-var ENRICH_BEFORE_MS = 24 * 3600 * 1000;   // sampai 24 jam setelah berangkat
-var ENRICH_AHEAD_MS = 48 * 3600 * 1000;    // sampai 48 jam sebelum berangkat
-
 var BULAN = {
   'januari': 1, 'februari': 2, 'maret': 3, 'april': 4, 'mei': 5, 'juni': 6,
   'juli': 7, 'agustus': 8, 'september': 9, 'oktober': 10, 'november': 11,
@@ -265,78 +260,109 @@ function sha256Hex_(str) {
 /* --------------------------- AO Shuttle API ---------------------------- */
 /*
  * Enrich tiap tiket dengan kode kendaraan (shuttle, mis. AOLV021) dari endpoint
- * /reservasi/detail. Bersifat additive & fail-safe: kalau token/credential belum
- * di-set atau API gagal, sync email tetap jalan dan kode shuttle hanya kosong.
+ * /reservasi/list — satu panggilan per akun (telp+email) mengembalikan
+ * kode_kendaraan untuk semua booking sekaligus. Bersifat additive & fail-safe:
+ * kalau credential belum di-set atau API gagal, sync email tetap jalan dan kode
+ * shuttle hanya kosong.
  *
- * Script Properties (Strategy A — token manual, jalan sekarang):
- *   AOSHUTTLE_TOKEN    : Bearer access token dari sesi app (client_credentials).
- *   AOSHUTTLE_API_BASE : https://apiwl.aoshuttle.asmat.app
- *
- * Upgrade ke auto (Strategy B) nanti: cukup ganti isi getAoToken_() untuk
- * mint token via POST {AOSHUTTLE_TOKEN_BASE}/client_token.php
- * (grant_type=client_credentials, client_id, client_secret). Fungsi lain tetap.
+ * Script Properties:
+ *   AOSHUTTLE_API_BASE      : https://apiwl.aoshuttle.asmat.app  (wajib)
+ * Token — pilih salah satu:
+ *   Auto (disarankan): AOSHUTTLE_CLIENT_ID + AOSHUTTLE_CLIENT_SECRET
+ *     -> di-mint tiap run via POST {API_BASE}/api-whitelabel/client_token.php
+ *        (grant_type=client_credentials). Tidak pernah kedaluwarsa.
+ *   Manual (fallback): AOSHUTTLE_TOKEN (Bearer, kedaluwarsa ~7 hari).
  */
 
 function aoCredsComplete_() {
   var p = PropertiesService.getScriptProperties();
-  return !!(p.getProperty('AOSHUTTLE_TOKEN') && p.getProperty('AOSHUTTLE_API_BASE'));
+  if (!p.getProperty('AOSHUTTLE_API_BASE')) return false;
+  var canMint = p.getProperty('AOSHUTTLE_CLIENT_ID') && p.getProperty('AOSHUTTLE_CLIENT_SECRET');
+  return !!(canMint || p.getProperty('AOSHUTTLE_TOKEN'));
 }
 
-/** Access token untuk API AO Shuttle. Strategy A: ambil dari Script Property. */
+/** Access token untuk API AO Shuttle. Auto-mint bila client creds ada, jika tidak
+ *  jatuh ke token manual. Return string atau null. */
 function getAoToken_() {
-  return PropertiesService.getScriptProperties().getProperty('AOSHUTTLE_TOKEN') || null;
+  var p = PropertiesService.getScriptProperties();
+  var id = p.getProperty('AOSHUTTLE_CLIENT_ID');
+  var secret = p.getProperty('AOSHUTTLE_CLIENT_SECRET');
+  var base = p.getProperty('AOSHUTTLE_API_BASE');
+  if (id && secret && base) {
+    try {
+      var res = UrlFetchApp.fetch(base + '/api-whitelabel/client_token.php', {
+        method: 'post',
+        payload: { grant_type: 'client_credentials', client_id: id, client_secret: secret },
+        muteHttpExceptions: true
+      });
+      if (res.getResponseCode() === 200) {
+        var j = JSON.parse(res.getContentText());
+        var tok = (j.tiketux && j.tiketux.result && j.tiketux.result.access_token) || j.access_token;
+        if (tok) return String(tok);
+      }
+      Logger.log('client_token.php HTTP %s', res.getResponseCode());
+    } catch (e) {
+      Logger.log('mint token error: %s', e);
+    }
+  }
+  return p.getProperty('AOSHUTTLE_TOKEN') || null;  // fallback manual
 }
 
-/** Ambil kode kendaraan satu booking. Return {pergi, pulang} (string, '' bila tak ada). */
-function fetchShuttleCode_(bookingCode, token) {
+/** Satu panggilan /reservasi/list -> map { kode_booking: kode_kendaraan }. */
+function fetchShuttleMap_(telp, email, token) {
   var p = PropertiesService.getScriptProperties();
-  var url = p.getProperty('AOSHUTTLE_API_BASE') + '/api-whitelabel/reservasi/detail';
+  var url = p.getProperty('AOSHUTTLE_API_BASE') + '/api-whitelabel/reservasi/list';
+  var map = {};
   try {
     var res = UrlFetchApp.fetch(url, {
       method: 'post',
-      payload: { kodebooking: bookingCode },   // NB: tanpa underscore
+      payload: { telp: telp, email: email },
       headers: { Authorization: 'Bearer ' + token },
       muteHttpExceptions: true
     });
     if (res.getResponseCode() !== 200) {
-      Logger.log('fetchShuttleCode_(%s) HTTP %s', bookingCode, res.getResponseCode());
-      return { pergi: '', pulang: '' };
+      Logger.log('reservasi/list HTTP %s', res.getResponseCode());
+      return map;
     }
-    var json = JSON.parse(res.getContentText());
-    var r = (json.tiketux && json.tiketux.result) || null;
-    if (!r) return { pergi: '', pulang: '' };
-    return {
-      pergi: String(r.kode_kendaraan_pergi || '').trim(),
-      pulang: String(r.kode_kendaraan_pulang || '').trim()
-    };
+    var arr = (JSON.parse(res.getContentText()).tiketux || {}).result || [];
+    arr.forEach(function (r) {
+      var code = String(r.kode_kendaraan || '').trim();
+      if (r.kode_booking && code) map[r.kode_booking] = code;
+    });
   } catch (e) {
-    Logger.log('fetchShuttleCode_(%s) error: %s', bookingCode, e);
-    return { pergi: '', pulang: '' };
+    Logger.log('reservasi/list error: %s', e);
   }
+  return map;
 }
 
-/** Untuk booking dalam jendela & belum punya kode: isi shuttleCodePergi/Pulang. In-place. */
+/** Isi shuttleCodePergi untuk tiket yang belum punya kode. In-place.
+ *  Satu tiket = satu leg = satu kode_kendaraan (disimpan di shuttleCodePergi). */
 function enrichShuttleCodes_(tickets) {
-  if (!aoCredsComplete_()) { Logger.log('Enrich dilewati: AOSHUTTLE_TOKEN/API_BASE belum di-set.'); return; }
-  var now = Date.now();
-  var due = tickets.filter(function (t) {
-    if (t.shuttleCodePergi) return false;                 // sudah ada
-    if (!t.bookingCode || !t.departISO) return false;
-    var dep = Date.parse(t.departISO);
-    if (isNaN(dep)) return false;
-    return dep >= now - ENRICH_BEFORE_MS && dep <= now + ENRICH_AHEAD_MS;
-  });
-  if (!due.length) return;
+  if (!aoCredsComplete_()) { Logger.log('Enrich dilewati: credential AO Shuttle belum lengkap.'); return; }
   var token = getAoToken_();
-  if (!token) { Logger.log('Enrich dilewati: token kosong.'); return; }
-  var filled = 0;
-  due.forEach(function (t) {
-    var c = fetchShuttleCode_(t.bookingCode, token);
-    if (c.pergi) { t.shuttleCodePergi = c.pergi; }
-    if (c.pulang) { t.shuttleCodePulang = c.pulang; }
-    if (c.pergi || c.pulang) { filled++; }
+  if (!token) { Logger.log('Enrich dilewati: token kosong / gagal mint.'); return; }
+
+  // Kumpulkan pasangan (telp,email) unik dari tiket -> 1 panggilan list per akun.
+  var seen = {}, accounts = [];
+  tickets.forEach(function (t) {
+    if (!t.phone || !t.email) return;
+    var k = t.phone + '|' + t.email;
+    if (!seen[k]) { seen[k] = true; accounts.push({ telp: t.phone, email: t.email }); }
   });
-  Logger.log('Enrich: %s booking dicek, %s dapat kode shuttle.', due.length, filled);
+
+  var map = {};
+  accounts.forEach(function (a) {
+    var m = fetchShuttleMap_(a.telp, a.email, token);
+    for (var kb in m) { if (m.hasOwnProperty(kb)) map[kb] = m[kb]; }
+  });
+
+  var filled = 0;
+  tickets.forEach(function (t) {
+    if (t.shuttleCodePergi) return;                 // sudah ada
+    var code = map[t.bookingCode];
+    if (code) { t.shuttleCodePergi = code; filled++; }
+  });
+  Logger.log('Enrich(list): %s tiket dapat kode dari %s akun.', filled, accounts.length);
 }
 
 /* ------------------------------- GitHub -------------------------------- */
