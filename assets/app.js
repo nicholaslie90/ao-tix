@@ -784,6 +784,19 @@ datepickerEl.addEventListener('click', function () {
 });
 $('logout').addEventListener('click', logout);
 
+/* Tombol Segarkan: tarik ulang file (fetch selalu no-store + cache-bust). */
+var refreshBtn = $('refresh');
+refreshBtn.addEventListener('click', function () {
+  if (!password || refreshBtn.disabled) return;
+  refreshBtn.disabled = true;
+  refreshBtn.classList.add('spin');
+  var done = function () {
+    refreshBtn.disabled = false;
+    refreshBtn.classList.remove('spin');
+  };
+  loadData(true).then(done, done);
+});
+
 /* ===== Init ===== */
 (function init() {
   initTheme();
