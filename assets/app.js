@@ -386,6 +386,12 @@ function shuttleAnchors(codes) {
   }).join(' · ');
 }
 function shuttleLinksHtml(t) { return shuttleAnchors(shuttleCodes(t)); }
+/* Trip akan datang / baru saja berangkat: kode shuttle memang diisi menjelang
+ * berangkat, jadi tampilkan "belum tersedia" alih-alih menyembunyikan barisnya. */
+function shuttleCodePending(t) {
+  var dep = t.departISO ? Date.parse(t.departISO) : NaN;
+  return !isNaN(dep) && dep >= Date.now() - 6 * 3600000;
+}
 
 function badge(t) {
   var dep = t.departISO ? Date.parse(t.departISO) : NaN;
@@ -600,7 +606,7 @@ function detailHtml(t) {
       ['Jam', esc(t.departTime)]
     ].concat(shuttleCodes(t).length
       ? [['Kode Shuttle', shuttleLinksHtml(t)]]
-      : []))) +
+      : (shuttleCodePending(t) ? [['Kode Shuttle', '<span class="muted">belum tersedia</span>']] : [])))) +
 
     section('Penumpang', (t.passengers || []).length
       ? '<div class="pax-grid">' + (t.passengers || []).map(function (p) { return paxHtml(p, t); }).join('') + '</div>'
@@ -618,8 +624,8 @@ function paxHtml(p, t) {
   t = t || {};
   var when = (t.departDate || '') + (t.departTime ? ' · ' + t.departTime : '');
   var img = '';
-  if (p.barcodeUrl) {
-    img = '<img class="pax-qr" src="' + esc(p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
+  if (p.barcodeData || p.barcodeUrl) {
+    img = '<img class="pax-qr" src="' + esc(p.barcodeData || p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
       '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') +
       '" data-when="' + esc(when) + '" data-shuttle="' + esc(shuttleCodes(t).join(',')) + '" />' +
       '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';

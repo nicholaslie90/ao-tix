@@ -24,17 +24,31 @@ var SEARCH_QUERY =
   'from:no-reply@mg.tiketux.com subject:"Tiket Elektronik AO Shuttle"';
 var PBKDF2_ITERATIONS = 100000;
 
+// Jendela "aktif": tiket yang keberangkatannya dekat (baru lewat s/d minggu depan).
+// Dipakai untuk membatasi panggilan API kode shuttle & embed QR agar hemat kuota.
+var ACTIVE_BEFORE_MS = 24 * 3600 * 1000;        // s/d 1 hari setelah berangkat
+var ACTIVE_AHEAD_MS = 7 * 24 * 3600 * 1000;     // s/d 7 hari sebelum berangkat
+
+function isActive_(t) {
+  if (!t.departISO) return false;
+  var dep = Date.parse(t.departISO);
+  if (isNaN(dep)) return false;
+  var now = Date.now();
+  return dep >= now - ACTIVE_BEFORE_MS && dep <= now + ACTIVE_AHEAD_MS;
+}
+
 var BULAN = {
   'januari': 1, 'februari': 2, 'maret': 3, 'april': 4, 'mei': 5, 'juni': 6,
   'juli': 7, 'agustus': 8, 'september': 9, 'oktober': 10, 'november': 11,
   'desember': 12
 };
 
-/** Entry point untuk trigger tiap 30 menit. */
+/** Entry point untuk trigger tiap jam. */
 function syncTickets() {
   var props = PropertiesService.getScriptProperties();
   var tickets = collectTickets_();
   enrichShuttleCodes_(tickets);   // isi kode shuttle (no-op bila token belum di-set)
+  embedBarcodes_(tickets);        // simpan QR sebagai data URI utk tiket aktif (offline)
 
   // Hash HANYA atas data tiket (tanpa generatedAt yang selalu berubah),
   // supaya tak ada commit sampah tiap run saat data tiket tidak berubah.
@@ -339,6 +353,9 @@ function fetchShuttleMap_(telp, email, token) {
  *  Satu tiket = satu leg = satu kode_kendaraan (disimpan di shuttleCodePergi). */
 function enrichShuttleCodes_(tickets) {
   if (!aoCredsComplete_()) { Logger.log('Enrich dilewati: credential AO Shuttle belum lengkap.'); return; }
+  // Hemat kuota: hanya panggil API bila ada tiket aktif yang belum punya kode.
+  var needed = tickets.some(function (t) { return !t.shuttleCodePergi && isActive_(t); });
+  if (!needed) { Logger.log('Enrich dilewati: tak ada tiket aktif tanpa kode.'); return; }
   var token = getAoToken_();
   if (!token) { Logger.log('Enrich dilewati: token kosong / gagal mint.'); return; }
 
@@ -363,6 +380,29 @@ function enrichShuttleCodes_(tickets) {
     if (code) { t.shuttleCodePergi = code; filled++; }
   });
   Logger.log('Enrich(list): %s tiket dapat kode dari %s akun.', filled, accounts.length);
+}
+
+/** Simpan QR boarding sebagai data URI (base64) untuk tiket aktif, supaya QR
+ *  tetap tampil tanpa fetch ke host gambar (mis. di halte dengan sinyal buruk).
+ *  Tiket di luar jendela aktif tetap pakai barcodeUrl remote (jarang dipindai). */
+function embedBarcodes_(tickets) {
+  var done = 0;
+  tickets.forEach(function (t) {
+    if (!isActive_(t)) return;
+    (t.passengers || []).forEach(function (p) {
+      if (!p.barcodeUrl || p.barcodeData) return;   // tak ada / sudah tertanam
+      try {
+        var res = UrlFetchApp.fetch(p.barcodeUrl, { muteHttpExceptions: true });
+        if (res.getResponseCode() !== 200) { Logger.log('QR HTTP %s: %s', res.getResponseCode(), p.barcodeUrl); return; }
+        var blob = res.getBlob();
+        p.barcodeData = 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
+        done++;
+      } catch (e) {
+        Logger.log('embedBarcodes_ error %s: %s', p.barcodeUrl, e);
+      }
+    });
+  });
+  Logger.log('Embed QR: %s gambar ditanam (tiket aktif).', done);
 }
 
 /* ------------------------------- GitHub -------------------------------- */

@@ -5,14 +5,15 @@ Web statis (GitHub Pages) untuk menampilkan semua e-tiket AO Shuttle dari email,
 publik, tanpa password isinya cuma teks acak.
 
 ```
-Gmail ──(Apps Script tiap 1 menit)──▶ data/tickets.enc.json (terenkripsi) ──▶ GitHub Pages
+Gmail ──(Apps Script tiap 1 jam)──▶ data/tickets.enc.json (terenkripsi) ──▶ GitHub Pages
         parse → enkripsi → push                                              login → dekripsi → tampil
 ```
 
 - **Enkripsi**: AES-CBC, kunci dari PBKDF2 (SHA-256, 100k iterasi). Password tidak pernah
   dikirim ke GitHub — hanya disimpan di Script Properties (privat) & diketik di browser.
-- **Auto-update**: Apps Script cek Gmail tiap 1 menit; web auto-poll tiap 60 detik
-  (plus tombol **Refresh**), jadi tiket baru muncul ~1 menit setelah email masuk.
+- **Auto-update**: Apps Script cek Gmail tiap 1 jam (hemat kuota Apps Script);
+  web auto-poll tiap 60 detik (plus tombol **Refresh**), jadi tiket baru muncul
+  paling lama ~1 jam setelah email masuk — atau segera dengan tombol Refresh.
 
 ## Struktur
 
@@ -57,7 +58,7 @@ Gmail ──(Apps Script tiap 1 menit)──▶ data/tickets.enc.json (terenkrip
    Ini backfill semua email tiket lama & push pertama kali.
 6. Trigger (⏰) → Add trigger:
    - Function: `syncTickets`
-   - Event source: **Time-driven** → **Minutes timer** → **Every minute**.
+   - Event source: **Time-driven** → **Hour timer** → **Every hour**.
 
 ### 4. Buka web
 Buka URL Pages, masukkan `TICKET_PASSWORD`. Centang "Ingat di perangkat ini" agar tak
