@@ -378,12 +378,11 @@ function shuttleCodes(t) {
   return out;
 }
 function shuttleText(t) { return shuttleCodes(t).join(' / '); }
-function shuttleAnchors(codes, iconless) {
-  var tail = iconless ? '' : ' 🛰️';
+function shuttleAnchors(codes) {
   return codes.map(function (c) {
     return '<a class="kode" href="https://eta.transtrack.id/aoshuttle/map/' +
       encodeURIComponent(c) + '" target="_blank" rel="noopener" title="Lacak posisi shuttle">' +
-      esc(c) + tail + '</a>';
+      esc(c) + '</a>';
   }).join(' · ');
 }
 function shuttleLinksHtml(t) { return shuttleAnchors(shuttleCodes(t)); }
@@ -434,7 +433,7 @@ function renderLightbox() {
   lightboxImg.src = item.src;
   // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
   var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
-    (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(','), true) + '</span>' : '') +
+    (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(',')) + '</span>' : '') +
     (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
     (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '');
   lightboxCap.innerHTML = capHtml;
