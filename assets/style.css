@@ -218,6 +218,8 @@ a { color: var(--accent); }
 .lightbox-card-cap .lb-cap-name { display: block; font-weight: 600; font-size: 16px; }
 .lightbox-card-cap .lb-cap-seat { display: block; margin-top: 4px; font-size: 18px; font-weight: 700; }
 .lightbox-card-cap .lb-cap-when { display: block; margin-top: 4px; font-size: 14px; color: #666; }
+.lightbox-card-cap .lb-cap-shuttle { display: block; margin-top: 8px; font-size: 15px; font-weight: 700; }
+.lightbox-card-cap .lb-cap-shuttle a.kode { color: #0a58ca; text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) { .lightbox-card { transition: none !important; } }
 .lightbox-close { position: absolute; top: 14px; right: 18px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; }
 .lightbox-nav {

@@ -378,13 +378,14 @@ function shuttleCodes(t) {
   return out;
 }
 function shuttleText(t) { return shuttleCodes(t).join(' / '); }
-function shuttleLinksHtml(t) {
-  return shuttleCodes(t).map(function (c) {
+function shuttleAnchors(codes) {
+  return codes.map(function (c) {
     return '<a class="kode" href="https://eta.transtrack.id/aoshuttle/map/' +
       encodeURIComponent(c) + '" target="_blank" rel="noopener" title="Lacak posisi shuttle">' +
       esc(c) + ' 🛰️</a>';
   }).join(' · ');
 }
+function shuttleLinksHtml(t) { return shuttleAnchors(shuttleCodes(t)); }
 
 function badge(t) {
   var dep = t.departISO ? Date.parse(t.departISO) : NaN;
@@ -433,7 +434,8 @@ function renderLightbox() {
   // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
   var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
     (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
-    (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '');
+    (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '') +
+    (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(',')) + '</span>' : '');
   lightboxCap.innerHTML = capHtml;
   lightboxCap.hidden = !capHtml;
   var multi = lbItems.length > 1;
@@ -506,7 +508,8 @@ function openLightboxFromModal(index) {
       src: el.getAttribute('src'),
       name: el.getAttribute('data-name'),
       seat: el.getAttribute('data-seat'),
-      when: el.getAttribute('data-when')
+      when: el.getAttribute('data-when'),
+      shuttle: el.getAttribute('data-shuttle')
     };
   });
   openLightbox(index);
@@ -618,7 +621,7 @@ function paxHtml(p, t) {
   if (p.barcodeUrl) {
     img = '<img class="pax-qr" src="' + esc(p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
       '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') +
-      '" data-when="' + esc(when) + '" />' +
+      '" data-when="' + esc(when) + '" data-shuttle="' + esc(shuttleCodes(t).join(',')) + '" />' +
       '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';
   }
   return '<div class="pax">' +
