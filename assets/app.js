@@ -28,6 +28,7 @@ var upcomingEl = $('upcoming'), archiveEl = $('archive'), archiveWrap = $('archi
 var returnWarnEl = $('return-warning');
 var archiveCountEl = $('archive-count'), emptyEl = $('empty');
 var modal = $('modal'), modalBody = $('modal-body');
+var mapbox = $('mapbox'), mapboxFrame = $('mapbox-frame'), mapboxTitle = $('mapbox-title');
 var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
 var lightboxCard = $('lightbox-card');
 var lightboxPrev = $('lightbox-prev'), lightboxNext = $('lightbox-next');
@@ -380,8 +381,9 @@ function shuttleCodes(t) {
 function shuttleText(t) { return shuttleCodes(t).join(' / '); }
 function shuttleAnchors(codes) {
   return codes.map(function (c) {
-    return '<a class="kode" href="https://eta.transtrack.id/aoshuttle/map/' +
-      encodeURIComponent(c) + '" target="_blank" rel="noopener" title="Lacak posisi shuttle">' +
+    return '<a class="kode" data-map="' + esc(c) +
+      '" href="https://eta.transtrack.id/aoshuttle/map/' +
+      encodeURIComponent(c) + '" title="Lacak posisi shuttle">' +
       esc(c) + '</a>';
   }).join(' · ');
 }
@@ -565,7 +567,36 @@ function lbEndDrag(e) {
 lightboxCard.addEventListener('pointerup', lbEndDrag);
 lightboxCard.addEventListener('pointercancel', lbEndDrag);
 
+/* Peta shuttle inline: cegat klik link kode shuttle (di modal maupun caption
+ * lightbox) dan buka iframe kecil alih-alih tab baru. href asli tetap ada
+ * sebagai fallback (buka di tab baru via klik-tengah/cmd-klik). */
+var mapUrl = '';
+function openMap(code, url) {
+  mapUrl = url;
+  mapboxTitle.textContent = code;
+  mapboxFrame.src = url;
+  mapbox.hidden = false;
+}
+function closeMap() { mapbox.hidden = true; mapboxFrame.src = 'about:blank'; mapUrl = ''; }
+document.addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a[data-map]');
+  if (!a) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey) return;   // biarkan buka tab baru
+  e.preventDefault();
+  openMap(a.getAttribute('data-map'), a.href);
+});
+$('mapbox-refresh').addEventListener('click', function () {
+  if (mapUrl) mapboxFrame.src = mapUrl;               // set ulang src = reload iframe
+});
+mapbox.addEventListener('click', function (e) {
+  if (e.target.hasAttribute('data-close-map')) closeMap();
+});
+
 document.addEventListener('keydown', function (e) {
+  if (!mapbox.hidden) {
+    if (e.key === 'Escape') closeMap();
+    return;
+  }
   if (!lightbox.hidden) {
     if (e.key === 'Escape') closeLightbox();
     else if (e.key === 'ArrowLeft') lbCommit(-1);

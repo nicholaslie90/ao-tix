@@ -82,6 +82,19 @@
     <button class="lightbox-close" data-close-lb aria-label="Tutup">×</button>
   </div>
 
+  <!-- Peta posisi shuttle (inline, tanpa buka tab baru) -->
+  <div id="mapbox" class="mapbox" hidden>
+    <div class="mapbox-backdrop" data-close-map></div>
+    <div class="mapbox-card">
+      <div class="mapbox-bar">
+        <span id="mapbox-title" class="kode"></span>
+        <button id="mapbox-refresh" title="Segarkan posisi shuttle" aria-label="Segarkan posisi shuttle">🔄</button>
+        <button class="mapbox-close" data-close-map aria-label="Tutup">×</button>
+      </div>
+      <iframe id="mapbox-frame" class="mapbox-frame" title="Peta posisi shuttle"></iframe>
+    </div>
+  </div>
+
   <script src="assets/crypto-js.min.js"></script>
   <script src="assets/app.js"></script>
 </body>

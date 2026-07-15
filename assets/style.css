@@ -157,6 +157,22 @@ button { cursor: pointer; font: inherit; }
 .kode { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
 .shuttle { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ok); font-weight: 600; white-space: nowrap; }
 
+/* ----- Peta shuttle inline ----- */
+/* z-index di atas lightbox (40): link kode shuttle juga ada di caption lightbox */
+.mapbox { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; }
+.mapbox-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+.mapbox-card {
+  position: relative; width: 100%; max-width: 560px; height: min(72vh, 560px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.mapbox-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.mapbox-bar .kode { font-weight: 700; margin-right: auto; }
+.mapbox-bar button { background: transparent; border: 0; color: var(--muted); font-size: 18px; line-height: 1; padding: 2px 4px; }
+.mapbox-bar button:hover { color: var(--text); }
+.mapbox-close { font-size: 26px; }
+.mapbox-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+
 /* ----- Modal ----- */
 .modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 18px; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
