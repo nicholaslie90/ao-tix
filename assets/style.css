@@ -147,7 +147,8 @@ button { cursor: pointer; font: inherit; }
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
 }
-.mapbox-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.mapbox-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); }
+.mapbox-bar button { display: flex; align-items: center; }
 .mapbox-bar .kode { font-weight: 700; margin-right: auto; }
 .mapbox-bar button { background: transparent; border: 0; color: var(--muted); font-size: 18px; line-height: 1; padding: 2px 4px; }
 .mapbox-bar button:hover { color: var(--text); }
