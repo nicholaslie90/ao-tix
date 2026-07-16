@@ -364,12 +364,18 @@ function fetchShuttleMap_(telp, email, token) {
 /** Isi shuttleCodePergi untuk tiket yang belum punya kode. In-place.
  *  Satu tiket = satu leg = satu kode_kendaraan (disimpan di shuttleCodePergi). */
 function enrichShuttleCodes_(tickets) {
-  if (!aoCredsComplete_()) { Logger.log('Enrich dilewati: credential AO Shuttle belum lengkap.'); return; }
+  // Berapa tiket aktif yang MASIH butuh kode. Kalau >0 tapi enrich gagal isi,
+  // itu kondisi yang harus terlihat (bukan senyap) -> enrichWarn_.
+  var needCount = tickets.filter(function (t) { return !t.shuttleCodePergi && isActive_(t); }).length;
+
+  if (!aoCredsComplete_()) {
+    if (needCount) enrichWarn_('credential AO Shuttle belum lengkap (AOSHUTTLE_API_BASE + CLIENT_ID/SECRET)', needCount);
+    return;
+  }
   // Hemat kuota: hanya panggil API bila ada tiket aktif yang belum punya kode.
-  var needed = tickets.some(function (t) { return !t.shuttleCodePergi && isActive_(t); });
-  if (!needed) { Logger.log('Enrich dilewati: tak ada tiket aktif tanpa kode.'); return; }
+  if (!needCount) { Logger.log('Enrich dilewati: tak ada tiket aktif tanpa kode.'); clearEnrichWarn_(); return; }
   var token = getAoToken_();
-  if (!token) { Logger.log('Enrich dilewati: token kosong / gagal mint.'); return; }
+  if (!token) { enrichWarn_('token kosong / gagal mint (cek nilai AOSHUTTLE_CLIENT_ID/SECRET/API_BASE — spasi/newline?)', needCount); return; }
 
   // Kumpulkan pasangan (telp,email) unik dari tiket -> 1 panggilan list per akun.
   var seen = {}, accounts = [];
@@ -392,7 +398,32 @@ function enrichShuttleCodes_(tickets) {
     if (code) { t.shuttleCodePergi = code; filled++; }
   });
   Logger.log('Enrich(list): %s tiket dapat kode dari %s akun.', filled, accounts.length);
+  // API jalan tapi tak ada kode terisi padahal ada tiket aktif yang butuh:
+  // kemungkinan kode_kendaraan masih kosong di sisi API, atau kode_booking tak cocok.
+  if (filled === 0) enrichWarn_('API sukses tapi 0 kode terisi (cek kode_kendaraan kosong / kode_booking tak cocok)', needCount);
+  else clearEnrichWarn_();
 }
+
+/** Peringatan enrich kode shuttle: log + email ke pemilik skrip. Deduplikasi via
+ *  Script Property supaya tak spam tiap jam — kirim sekali per kondisi, lalu diam
+ *  sampai kondisinya berubah. clearEnrichWarn_() dipanggil saat enrich sukses,
+ *  sehingga kegagalan berikutnya memberi tahu lagi. */
+function enrichWarn_(reason, needCount) {
+  Logger.log('PERINGATAN enrich: %s (%s tiket aktif butuh kode)', reason, needCount);
+  var p = PropertiesService.getScriptProperties();
+  if (p.getProperty('ENRICH_WARN') === reason) return;   // sudah diberi tahu utk kondisi ini
+  p.setProperty('ENRICH_WARN', reason);
+  try {
+    MailApp.sendEmail(
+      Session.getEffectiveUser().getEmail(),
+      'AO Shuttle: kode shuttle gagal terisi',
+      'Enrichment kode shuttle gagal mengisi tiket aktif.\n\n' +
+      'Sebab: ' + reason + '\n' +
+      'Tiket aktif tanpa kode: ' + needCount + '\n\n' +
+      'Detail HTTP ada di Apps Script > Executions > syncTickets.');
+  } catch (e) { Logger.log('Gagal kirim email peringatan: %s', e); }
+}
+function clearEnrichWarn_() { PropertiesService.getScriptProperties().deleteProperty('ENRICH_WARN'); }
 
 /** Simpan QR boarding sebagai data URI (base64) untuk tiket aktif, supaya QR
  *  tetap tampil tanpa fetch ke host gambar (mis. di halte dengan sinyal buruk).
