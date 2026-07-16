@@ -47,6 +47,7 @@ var BULAN = {
 function syncTickets() {
   var props = PropertiesService.getScriptProperties();
   var tickets = collectTickets_();
+  tickets = keepTodayAndFuture_(tickets);   // buang tiket yang harinya sudah lewat (WIB)
   enrichShuttleCodes_(tickets);   // isi kode shuttle (no-op bila token belum di-set)
   embedBarcodes_(tickets);        // simpan QR sebagai data URI utk tiket aktif (offline)
 
@@ -63,6 +64,17 @@ function syncTickets() {
   pushToGitHub_(JSON.stringify(enc));
   props.setProperty('LAST_HASH', hash);
   Logger.log('Push %s tiket ke GitHub.', tickets.length);
+}
+
+/** Simpan hanya tiket yang tanggal berangkatnya HARI INI atau setelahnya (WIB).
+ *  Tiket tanpa tanggal ikut disimpan (tak bisa dinilai). Ini yang menjaga file
+ *  tetap kecil: tiket lama tak pernah ikut ditulis. */
+function keepTodayAndFuture_(tickets) {
+  var today = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd');
+  return tickets.filter(function (t) {
+    if (!t.departISO) return true;
+    return t.departISO.slice(0, 10) >= today;   // ISO 'YYYY-MM-DD...' -> banding leksikografis aman
+  });
 }
 
 /** Jalankan manual sekali untuk authorize + backfill + tes. */

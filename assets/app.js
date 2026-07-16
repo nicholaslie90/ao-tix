@@ -21,12 +21,12 @@ var lastChecked = null;   // waktu terakhir web berhasil menarik file
 var $ = function (id) { return document.getElementById(id); };
 var loginEl = $('login'), appEl = $('app'), loginForm = $('login-form');
 var pwInput = $('password'), rememberInput = $('remember'), loginError = $('login-error');
-var statusEl = $('status'), statsEl = $('stats');
+var statusEl = $('status');
 var datepickerEl = $('datepicker');
 var themeToggle = $('theme-toggle');
-var upcomingEl = $('upcoming'), archiveEl = $('archive'), archiveWrap = $('archive-wrap');
+var upcomingEl = $('upcoming');
 var returnWarnEl = $('return-warning');
-var archiveCountEl = $('archive-count'), emptyEl = $('empty');
+var emptyEl = $('empty');
 var modal = $('modal'), modalBody = $('modal-body');
 var mapbox = $('mapbox'), mapboxFrame = $('mapbox-frame'), mapboxTitle = $('mapbox-title');
 var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
@@ -84,10 +84,8 @@ function loadData(force) {
 }
 
 function updateStatus() {
-  var parts = [tickets.length + ' tiket'];
-  if (generatedAt) parts.push('data ' + fmtDateTime(generatedAt));
-  if (lastChecked) parts.push('dicek ' + fmtClock(lastChecked));
-  statusEl.textContent = parts.join(' · ');
+  // ponytail: 3 statistik (tiket/data/dicek) dihapus; statusEl dipakai untuk pesan transien saja.
+  statusEl.textContent = '';
 }
 
 /* ===== Login ===== */
@@ -266,56 +264,25 @@ function renderReturnWarning(summary) {
 
 /* ===== Render ===== */
 function render() {
-  // Tanggal hari ini di zona WIB (YYYY-MM-DD) — arsip hanya kalau harinya sudah lewat.
+  // Tanggal hari ini di zona WIB (YYYY-MM-DD). Tiket yang harinya sudah lewat tak
+  // ditampilkan — bisa saja masih ada di file sampai sync Apps Script berikutnya.
   var todayWIB = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-  var upcoming = [], archive = [];
+  var upcoming = [];
 
   var missing = annotateMissing(tickets, detectHome(tickets));
 
   tickets.forEach(function (t) {
     var day = dateKey(t);
-    if (day && day < todayWIB) archive.push(t); else upcoming.push(t);
+    if (!day || day >= todayWIB) upcoming.push(t);
   });
 
   upcoming.sort(function (a, b) { return Date.parse(a.departISO) - Date.parse(b.departISO); });
-  archive.sort(function (a, b) {
-    return (Date.parse(b.departISO) || 0) - (Date.parse(a.departISO) || 0);
-  });
 
   upcomingEl.innerHTML = dayGroupsHtml(upcoming);
-  archiveEl.innerHTML = dayGroupsHtml(archive);
-  archiveWrap.hidden = archive.length === 0;
-  archiveCountEl.textContent = archive.length ? '(' + archive.length + ')' : '';
-  emptyEl.hidden = tickets.length !== 0;
+  emptyEl.hidden = upcoming.length !== 0;
 
   renderReturnWarning(missing);
-  renderStats();
   bindCards();
-}
-
-/* ===== Statistik (dihitung dari SEMUA tiket, bukan hasil filter) ===== */
-function parseRupiah(s) {
-  var n = String(s == null ? '' : s).replace(/[^\d]/g, '');
-  return n ? parseInt(n, 10) : 0;
-}
-function fmtRupiah(n) { return 'Rp ' + n.toLocaleString('id-ID'); }
-
-function renderStats() {
-  if (!tickets.length) { statsEl.hidden = true; statsEl.innerHTML = ''; return; }
-  statsEl.hidden = false;
-  var total = 0, seats = 0;
-  tickets.forEach(function (t) {
-    total += parseRupiah(t.totalBayar);
-    seats += ((t.priceRows && t.priceRows.length) || (t.passengers && t.passengers.length) || 0);
-  });
-  statsEl.innerHTML =
-    statCard(fmtRupiah(total), 'Total pengeluaran', 'money') +
-    statCard(tickets.length, 'Perjalanan', '') +
-    statCard(seats, 'Total tiket', '');
-}
-function statCard(value, label, cls) {
-  return '<div class="stat"><div class="stat-value ' + cls + '">' + esc(value) +
-    '</div><div class="stat-label">' + esc(label) + '</div></div>';
 }
 
 /* Kelompokkan tiket (sudah terurut) per tanggal, beri header tanggal. */
@@ -778,8 +745,6 @@ function jumpToDate(val) {
   }
   if (!target) return;
 
-  // Buka panel arsip kalau target ada di dalamnya, lalu scroll + sorot.
-  if (archiveWrap.contains(target)) archiveWrap.open = true;
   target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   target.classList.remove('jump-flash');
   void target.offsetWidth; // restart animasi
