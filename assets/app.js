@@ -89,17 +89,25 @@ function updateStatus() {
 }
 
 /* ===== Login ===== */
+var loginBtn = loginForm.querySelector('button[type="submit"]');
+function loginBusy(busy) {
+  loginBtn.disabled = busy;
+  loginBtn.textContent = busy ? 'Membuka…' : 'Buka';
+}
 loginForm.addEventListener('submit', function (e) {
   e.preventDefault();
   loginError.hidden = true;
   var pw = pwInput.value;
   if (!pw) return;
   password = pw;
+  loginBusy(true);
   loadData(true).then(function () {
+    loginBusy(false);
     if (rememberInput.checked) localStorage.setItem(STORE_KEY, pw);
     else sessionStorage.setItem(STORE_KEY, pw);
     showApp();
   }).catch(function (err) {
+    loginBusy(false);
     password = null;
     if (String(err.message).indexOf('wrong-password') >= 0) {
       showLoginError('Password salah.');
@@ -700,15 +708,15 @@ function fmtClock(ms) {
 
 /* ===== Tema gelap/terang ===== */
 function applyTheme(theme) {
+  // ikon toggle (matahari/bulan) ditukar via CSS berdasar data-theme
   document.documentElement.setAttribute('data-theme', theme);
-  // tampilkan ikon aksi: di gelap tawarkan terang (matahari), sebaliknya bulan
-  if (themeToggle) themeToggle.textContent = theme === 'light' ? '🌙' : '☀️';
 }
 function initTheme() {
   var saved = localStorage.getItem(THEME_KEY);
   if (!saved) {
-    var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-    saved = prefersLight ? 'light' : 'dark';
+    // default terang; gelap hanya bila OS memintanya
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    saved = prefersDark ? 'dark' : 'light';
   }
   applyTheme(saved);
 }
