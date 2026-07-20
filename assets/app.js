@@ -128,45 +128,42 @@ function showApp() {
   startPolling();
   // Begitu berhasil login, langsung buka detail kartu yang paling relevan jam ini
   // dan tampilkan QR-nya dalam lightbox, seolah QR-nya sudah diketuk.
-  var auto = ticketToAutoOpen();
-  if (auto) {
-    openModal(auto);
-    openLightboxFromModal(0);
-  }
+  autoOpen(ticketToAutoOpen());
 }
 
-/* Kartu yang otomatis dibuka saat login.
- * - Kalau ADA trip yang jam berangkatnya "dekat" sekarang (dalam ±3 jam, baik
- *   sebentar lagi maupun baru saja berangkat), buka yang PALING dekat. Contoh:
- *   buka aplikasi jam 4–8 pagi -> kartu trip jam 6 pagi; buka jam 3–7 sore ->
- *   kartu trip jam 5/6 sore, mana yang terdekat dengan jam sekarang.
- * - Kalau tak ada yang masuk jendela itu, jatuh ke trip akan datang berikutnya. */
-var AUTO_OPEN_WINDOW_MS = 3 * 3600000; // give or take ±3 jam
+/* Tiket yang relevan "sekarang": tiket paling awal yang belum lewat 2 jam sejak
+ * berangkat. Jadi tiket berjalan tetap tampil sampai 2 jam setelah keberangkatan,
+ * lalu otomatis berganti ke tiket berikutnya. null kalau tak ada. */
+var ACTIVE_AFTER_DEPART_MS = 2 * 3600000;
 
 function ticketToAutoOpen() {
-  var now = Date.now();
-  var nearest = null, nearestDiff = Infinity;
-  tickets.forEach(function (t) {
-    var dep = Date.parse(t.departISO);
-    if (isNaN(dep)) return;
-    var diff = Math.abs(dep - now);
-    if (diff <= AUTO_OPEN_WINDOW_MS && diff < nearestDiff) {
-      nearestDiff = diff; nearest = t;
-    }
-  });
-  return nearest || nextUpcomingTicket();
-}
-
-/* Tiket akan datang paling dekat (belum berangkat). null kalau tak ada. */
-function nextUpcomingTicket() {
-  var now = Date.now();
+  var cutoff = Date.now() - ACTIVE_AFTER_DEPART_MS;
   var best = null, bestDep = Infinity;
   tickets.forEach(function (t) {
     var dep = Date.parse(t.departISO);
-    if (isNaN(dep) || dep < now) return;
+    if (isNaN(dep) || dep <= cutoff) return;
     if (dep < bestDep) { bestDep = dep; best = t; }
   });
   return best;
+}
+
+/* Buka modal + lightbox tiket otomatis, dan ingat index-nya. */
+var autoIdx = -1;
+function autoOpen(t) {
+  if (!t) return;
+  autoIdx = tickets.indexOf(t);
+  openModal(t);
+  openLightboxFromModal(0);
+}
+
+/* Tiap poll, waktu berjalan bisa mengganti tiket "sekarang" (2 jam setelah tiket
+ * berjalan berangkat). Kalau lightbox otomatis masih terbuka pada tiket itu dan
+ * tikennya berubah, buka tiket baru — tanpa perlu refresh. Tidak mengganggu kalau
+ * user sudah menutup lightbox atau membuka kartu lain. */
+function maybeAdvanceAuto() {
+  if (lightbox.hidden || openTicketIdx !== autoIdx) return;
+  var t = ticketToAutoOpen();
+  if (t && tickets.indexOf(t) !== autoIdx) autoOpen(t);
 }
 
 function logout() {
@@ -183,6 +180,7 @@ function startPolling() {
   pollTimer = setInterval(function () {
     if (!password) return;
     loadData(false).catch(function () { /* abaikan error sementara */ });
+    maybeAdvanceAuto();
   }, POLL_MS);
 }
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
@@ -395,8 +393,10 @@ function bindCards() {
 }
 
 /* ===== Modal detail ===== */
+var openTicketIdx = -1;   // index tiket yang sedang ditampilkan di modal
 function openModal(t) {
   if (!t) return;
+  openTicketIdx = tickets.indexOf(t);
   modalBody.innerHTML = detailHtml(t);
   modal.hidden = false;
 }
