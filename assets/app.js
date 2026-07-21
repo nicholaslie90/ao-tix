@@ -147,23 +147,27 @@ function ticketToAutoOpen() {
   return best;
 }
 
-/* Buka modal + lightbox tiket otomatis, dan ingat index-nya. */
-var autoIdx = -1;
+/* Buka modal + lightbox tiket otomatis, dan ingat index + tanda-tangannya. */
+var autoIdx = -1, autoKey = '';
+function autoSig(t) { return t.departISO + '|' + shuttleText(t); }
 function autoOpen(t) {
   if (!t) return;
   autoIdx = tickets.indexOf(t);
+  autoKey = autoSig(t);
   openModal(t);
   openLightboxFromModal(0);
 }
 
-/* Tiap poll, waktu berjalan bisa mengganti tiket "sekarang" (2 jam setelah tiket
- * berjalan berangkat). Kalau lightbox otomatis masih terbuka pada tiket itu dan
- * tikennya berubah, buka tiket baru — tanpa perlu refresh. Tidak mengganggu kalau
- * user sudah menutup lightbox atau membuka kartu lain. */
+/* Tiap poll, dua hal bisa berubah: (1) waktu berjalan mengganti tiket "sekarang"
+ * (2 jam setelah tiket berjalan berangkat), (2) data ter-poll mengisi kode shuttle
+ * tiket yang sedang tampil (kode diisi menjelang berangkat). Selama lightbox
+ * otomatis masih terbuka pada tiket itu, buka ulang bila tiket ATAU kode shuttle-nya
+ * berubah — jadi link peta muncul tanpa perlu refresh. Tidak mengganggu kalau user
+ * sudah menutup lightbox atau membuka kartu lain. */
 function maybeAdvanceAuto() {
   if (lightbox.hidden || openTicketIdx !== autoIdx) return;
   var t = ticketToAutoOpen();
-  if (t && tickets.indexOf(t) !== autoIdx) autoOpen(t);
+  if (t && autoSig(t) !== autoKey) autoOpen(t);
 }
 
 function logout() {
@@ -179,8 +183,8 @@ function startPolling() {
   stopPolling();
   pollTimer = setInterval(function () {
     if (!password) return;
-    loadData(false).catch(function () { /* abaikan error sementara */ });
-    maybeAdvanceAuto();
+    // maybeAdvanceAuto SETELAH data settle, supaya ia melihat kode shuttle terbaru.
+    loadData(false).then(maybeAdvanceAuto).catch(function () { /* abaikan error sementara */ });
   }, POLL_MS);
 }
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
