@@ -309,11 +309,14 @@ function aoCredsComplete_() {
 
 /** Access token untuk API AO Shuttle. Auto-mint bila client creds ada, jika tidak
  *  jatuh ke token manual. Return string atau null. */
+function trimProp_(v) { return String(v || '').trim(); }
+
 function getAoToken_() {
   var p = PropertiesService.getScriptProperties();
-  var id = p.getProperty('AOSHUTTLE_CLIENT_ID');
-  var secret = p.getProperty('AOSHUTTLE_CLIENT_SECRET');
-  var base = p.getProperty('AOSHUTTLE_API_BASE');
+  // trim: spasi/newline saat paste ke Script Properties = penyebab tersering.
+  var id = trimProp_(p.getProperty('AOSHUTTLE_CLIENT_ID'));
+  var secret = trimProp_(p.getProperty('AOSHUTTLE_CLIENT_SECRET'));
+  var base = trimProp_(p.getProperty('AOSHUTTLE_API_BASE')).replace(/\/+$/, '');  // buang trailing slash
   if (id && secret && base) {
     try {
       var res = UrlFetchApp.fetch(base + '/api-whitelabel/client_token.php', {
@@ -321,23 +324,25 @@ function getAoToken_() {
         payload: { grant_type: 'client_credentials', client_id: id, client_secret: secret },
         muteHttpExceptions: true
       });
-      if (res.getResponseCode() === 200) {
-        var j = JSON.parse(res.getContentText());
+      var code = res.getResponseCode();
+      var text = res.getContentText();
+      if (code === 200) {
+        var j = JSON.parse(text);
         var tok = (j.tiketux && j.tiketux.result && j.tiketux.result.access_token) || j.access_token;
         if (tok) return String(tok);
       }
-      Logger.log('client_token.php HTTP %s', res.getResponseCode());
+      Logger.log('client_token.php HTTP %s body: %s', code, text.slice(0, 300));
     } catch (e) {
       Logger.log('mint token error: %s', e);
     }
   }
-  return p.getProperty('AOSHUTTLE_TOKEN') || null;  // fallback manual
+  return trimProp_(p.getProperty('AOSHUTTLE_TOKEN')) || null;  // fallback manual
 }
 
 /** Satu panggilan /reservasi/list -> map { kode_booking: kode_kendaraan }. */
 function fetchShuttleMap_(telp, email, token) {
   var p = PropertiesService.getScriptProperties();
-  var url = p.getProperty('AOSHUTTLE_API_BASE') + '/api-whitelabel/reservasi/list';
+  var url = trimProp_(p.getProperty('AOSHUTTLE_API_BASE')).replace(/\/+$/, '') + '/api-whitelabel/reservasi/list';
   var map = {};
   try {
     var res = UrlFetchApp.fetch(url, {
