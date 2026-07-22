@@ -311,8 +311,13 @@ function aoCredsComplete_() {
  *  jatuh ke token manual. Return string atau null. */
 function trimProp_(v) { return String(v || '').trim(); }
 
+// Detail kegagalan mint terakhir dalam satu run; dipakai enrichWarn_ agar email
+// alert menyebut sebab sebenarnya (mis. HTTP 500 upstream) bukan tebakan config.
+var _aoMintErr = '';
+
 function getAoToken_() {
   var p = PropertiesService.getScriptProperties();
+  _aoMintErr = '';
   // trim: spasi/newline saat paste ke Script Properties = penyebab tersering.
   var id = trimProp_(p.getProperty('AOSHUTTLE_CLIENT_ID'));
   var secret = trimProp_(p.getProperty('AOSHUTTLE_CLIENT_SECRET'));
@@ -331,9 +336,11 @@ function getAoToken_() {
         var tok = (j.tiketux && j.tiketux.result && j.tiketux.result.access_token) || j.access_token;
         if (tok) return String(tok);
       }
-      Logger.log('client_token.php HTTP %s body: %s', code, text.slice(0, 300));
+      _aoMintErr = 'client_token.php HTTP ' + code + ': ' + text.slice(0, 200);
+      Logger.log(_aoMintErr);
     } catch (e) {
-      Logger.log('mint token error: %s', e);
+      _aoMintErr = 'mint token error: ' + e;
+      Logger.log(_aoMintErr);
     }
   }
   return trimProp_(p.getProperty('AOSHUTTLE_TOKEN')) || null;  // fallback manual
@@ -380,7 +387,7 @@ function enrichShuttleCodes_(tickets) {
   // Hemat kuota: hanya panggil API bila ada tiket aktif yang belum punya kode.
   if (!needCount) { Logger.log('Enrich dilewati: tak ada tiket aktif tanpa kode.'); clearEnrichWarn_(); return; }
   var token = getAoToken_();
-  if (!token) { enrichWarn_('token kosong / gagal mint (cek nilai AOSHUTTLE_CLIENT_ID/SECRET/API_BASE — spasi/newline?)', needCount); return; }
+  if (!token) { enrichWarn_(_aoMintErr || 'token kosong (cek AOSHUTTLE_CLIENT_ID/SECRET/API_BASE — spasi/newline?)', needCount); return; }
 
   // Kumpulkan pasangan (telp,email) unik dari tiket -> 1 panggilan list per akun.
   var seen = {}, accounts = [];
