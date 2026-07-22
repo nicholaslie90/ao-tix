@@ -376,18 +376,17 @@ function fetchShuttleMap_(telp, email, token) {
 /** Isi shuttleCodePergi untuk tiket yang belum punya kode. In-place.
  *  Satu tiket = satu leg = satu kode_kendaraan (disimpan di shuttleCodePergi). */
 function enrichShuttleCodes_(tickets) {
-  // Berapa tiket aktif yang MASIH butuh kode. Kalau >0 tapi enrich gagal isi,
-  // itu kondisi yang harus terlihat (bukan senyap) -> enrichWarn_.
+  // Berapa tiket aktif yang MASIH butuh kode -> penentu apakah API perlu dipanggil.
   var needCount = tickets.filter(function (t) { return !t.shuttleCodePergi && isActive_(t); }).length;
 
   if (!aoCredsComplete_()) {
-    if (needCount) enrichWarn_('credential AO Shuttle belum lengkap (AOSHUTTLE_API_BASE + CLIENT_ID/SECRET)', needCount);
+    enrichWarn_('credential AO Shuttle belum lengkap (AOSHUTTLE_API_BASE + CLIENT_ID/SECRET)', urgentNoCode_(tickets));
     return;
   }
   // Hemat kuota: hanya panggil API bila ada tiket aktif yang belum punya kode.
   if (!needCount) { Logger.log('Enrich dilewati: tak ada tiket aktif tanpa kode.'); clearEnrichWarn_(); return; }
   var token = getAoToken_();
-  if (!token) { enrichWarn_(_aoMintErr || 'token kosong (cek AOSHUTTLE_CLIENT_ID/SECRET/API_BASE — spasi/newline?)', needCount); return; }
+  if (!token) { enrichWarn_(_aoMintErr || 'token kosong (cek AOSHUTTLE_CLIENT_ID/SECRET/API_BASE — spasi/newline?)', urgentNoCode_(tickets)); return; }
 
   // Kumpulkan pasangan (telp,email) unik dari tiket -> 1 panggilan list per akun.
   var seen = {}, accounts = [];
@@ -410,18 +409,28 @@ function enrichShuttleCodes_(tickets) {
     if (code) { t.shuttleCodePergi = code; filled++; }
   });
   Logger.log('Enrich(list): %s tiket dapat kode dari %s akun.', filled, accounts.length);
-  // API jalan tapi tak ada kode terisi padahal ada tiket aktif yang butuh:
-  // kemungkinan kode_kendaraan masih kosong di sisi API, atau kode_booking tak cocok.
-  if (filled === 0) enrichWarn_('API sukses tapi 0 kode terisi (cek kode_kendaraan kosong / kode_booking tak cocok)', needCount);
-  else clearEnrichWarn_();
+  // Peringatan hanya kalau tiket hari ini / H+1 masih tanpa kode (yang lain bisa nyusul run berikut).
+  enrichWarn_('API sukses tapi kode tiket hari ini/H+1 tak terisi (cek kode_kendaraan kosong / kode_booking tak cocok)', urgentNoCode_(tickets));
+}
+
+/** Jumlah tiket yang berangkat HARI INI atau H+1 (WIB) yang masih tanpa kode shuttle. */
+function urgentNoCode_(tickets) {
+  var today = Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd');
+  var tmrw = Utilities.formatDate(new Date(Date.now() + 86400000), 'Asia/Jakarta', 'yyyy-MM-dd');
+  return tickets.filter(function (t) {
+    if (t.shuttleCodePergi || !t.departISO) return false;
+    var d = t.departISO.slice(0, 10);
+    return d === today || d === tmrw;
+  }).length;
 }
 
 /** Peringatan enrich kode shuttle: log + email ke pemilik skrip. Deduplikasi via
  *  Script Property supaya tak spam tiap jam — kirim sekali per kondisi, lalu diam
  *  sampai kondisinya berubah. clearEnrichWarn_() dipanggil saat enrich sukses,
  *  sehingga kegagalan berikutnya memberi tahu lagi. */
-function enrichWarn_(reason, needCount) {
-  Logger.log('PERINGATAN enrich: %s (%s tiket aktif butuh kode)', reason, needCount);
+function enrichWarn_(reason, urgentCount) {
+  Logger.log('PERINGATAN enrich: %s (%s tiket hari ini/H+1 tanpa kode)', reason, urgentCount);
+  if (!urgentCount) { clearEnrichWarn_(); return; }   // tiket hari ini/H+1 semua sudah berkode -> tak perlu email
   var p = PropertiesService.getScriptProperties();
   if (p.getProperty('ENRICH_WARN') === reason) return;   // sudah diberi tahu utk kondisi ini
   p.setProperty('ENRICH_WARN', reason);
@@ -429,9 +438,9 @@ function enrichWarn_(reason, needCount) {
     MailApp.sendEmail(
       Session.getEffectiveUser().getEmail(),
       'AO Shuttle: kode shuttle gagal terisi',
-      'Enrichment kode shuttle gagal mengisi tiket aktif.\n\n' +
+      'Kode shuttle tiket hari ini / H+1 gagal terisi.\n\n' +
       'Sebab: ' + reason + '\n' +
-      'Tiket aktif tanpa kode: ' + needCount + '\n\n' +
+      'Tiket hari ini/H+1 tanpa kode: ' + urgentCount + '\n\n' +
       'Detail HTTP ada di Apps Script > Executions > syncTickets.');
   } catch (e) { Logger.log('Gagal kirim email peringatan: %s', e); }
 }
