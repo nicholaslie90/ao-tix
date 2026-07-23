@@ -430,19 +430,21 @@ function urgentNoCode_(tickets) {
  *  sehingga kegagalan berikutnya memberi tahu lagi. */
 function enrichWarn_(reason, urgentCount) {
   Logger.log('PERINGATAN enrich: %s (%s tiket hari ini/H+1 tanpa kode)', reason, urgentCount);
-  if (!urgentCount) { clearEnrichWarn_(); return; }   // tiket hari ini/H+1 semua sudah berkode -> tak perlu email
-  var p = PropertiesService.getScriptProperties();
-  if (p.getProperty('ENRICH_WARN') === reason) return;   // sudah diberi tahu utk kondisi ini
-  p.setProperty('ENRICH_WARN', reason);
-  try {
-    MailApp.sendEmail(
-      Session.getEffectiveUser().getEmail(),
-      'AO Shuttle: kode shuttle gagal terisi',
-      'Kode shuttle tiket hari ini / H+1 gagal terisi.\n\n' +
-      'Sebab: ' + reason + '\n' +
-      'Tiket hari ini/H+1 tanpa kode: ' + urgentCount + '\n\n' +
-      'Detail HTTP ada di Apps Script > Executions > syncTickets.');
-  } catch (e) { Logger.log('Gagal kirim email peringatan: %s', e); }
+  // ponytail: notifikasi email dimatikan — cukup log di Executions. Aktifkan lagi
+  // dgn uncomment blok MailApp di bawah kalau butuh alert.
+  // if (!urgentCount) { clearEnrichWarn_(); return; }
+  // var p = PropertiesService.getScriptProperties();
+  // if (p.getProperty('ENRICH_WARN') === reason) return;
+  // p.setProperty('ENRICH_WARN', reason);
+  // try {
+  //   MailApp.sendEmail(
+  //     Session.getEffectiveUser().getEmail(),
+  //     'AO Shuttle: kode shuttle gagal terisi',
+  //     'Kode shuttle tiket hari ini / H+1 gagal terisi.\n\n' +
+  //     'Sebab: ' + reason + '\n' +
+  //     'Tiket hari ini/H+1 tanpa kode: ' + urgentCount + '\n\n' +
+  //     'Detail HTTP ada di Apps Script > Executions > syncTickets.');
+  // } catch (e) { Logger.log('Gagal kirim email peringatan: %s', e); }
 }
 function clearEnrichWarn_() { PropertiesService.getScriptProperties().deleteProperty('ENRICH_WARN'); }
 
