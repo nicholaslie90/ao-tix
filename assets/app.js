@@ -414,10 +414,34 @@ modal.addEventListener('click', function (e) {
 var lbItems = [];   // daftar QR yang sedang dibuka: [{ src, cap }]
 var lbIndex = 0;
 
+/* PNG barcode dari AO transparan, jadi saat disimpan/di-share tampil hitam.
+ * Rata-kan ke kanvas putih sekali per QR lalu tukar src-nya. */
+var lbWhite = {};
+function whitenQr(src, done) {
+  if (lbWhite[src]) return done(lbWhite[src]);
+  var im = new Image();
+  im.crossOrigin = 'anonymous';                       // barcodeUrl lintas-domain: tanpa ini kanvas ternoda
+  im.onload = function () {
+    try {
+      var c = document.createElement('canvas');
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      var g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(im, 0, 0);
+      done(lbWhite[src] = c.toDataURL('image/png'));
+    } catch (_) {}                                    // gagal (CORS) → biarkan src asli
+  };
+  im.src = src;
+}
+
 function renderLightbox() {
   var item = lbItems[lbIndex];
   if (!item) return;
   lightboxImg.src = item.src;
+  whitenQr(item.src, function (url) {
+    var cur = lbItems[lbIndex];
+    if (cur && cur.src === item.src) lightboxImg.src = url;   // abaikan bila sudah geser kartu
+  });
   // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
   var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
     (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(',')) + '</span>' : '') +
