@@ -423,11 +423,14 @@ function whitenQr(src, done) {
   im.crossOrigin = 'anonymous';                       // barcodeUrl lintas-domain: tanpa ini kanvas ternoda
   im.onload = function () {
     try {
+      // Kelipatan bulat ke >=512px: modul QR tetap tajam (tanpa antialias abu-abu).
+      var s = Math.max(1, Math.ceil(512 / Math.max(im.naturalWidth, im.naturalHeight)));
       var c = document.createElement('canvas');
-      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      c.width = im.naturalWidth * s; c.height = im.naturalHeight * s;
       var g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
       g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
-      g.drawImage(im, 0, 0);
+      g.drawImage(im, 0, 0, c.width, c.height);
       done(lbWhite[src] = c.toDataURL('image/png'));
     } catch (_) {}                                    // gagal (CORS) → biarkan src asli
   };
