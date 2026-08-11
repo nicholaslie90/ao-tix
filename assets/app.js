@@ -743,17 +743,20 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
 }
 function initTheme() {
+  var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
   var saved = localStorage.getItem(THEME_KEY);
-  if (!saved) {
-    // default terang; gelap hanya bila OS memintanya
-    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    saved = prefersDark ? 'dark' : 'light';
-  }
-  applyTheme(saved);
+  // default ikut OS; nilai tersimpan = override manual dari tombol
+  applyTheme(saved || (mq && mq.matches ? 'dark' : 'light'));
+  // ikuti perubahan tema OS selama pengguna belum menge-set manual
+  if (mq && mq.addEventListener) mq.addEventListener('change', function (e) {
+    if (!localStorage.getItem(THEME_KEY)) applyTheme(e.matches ? 'dark' : 'light');
+  });
 }
 if (themeToggle) themeToggle.addEventListener('click', function () {
   var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-  localStorage.setItem(THEME_KEY, next);
+  var sys = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // kembali ke mode "ikut sistem" bila pilihan manual sama dengan tema OS
+  if (next === sys) localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next);
   applyTheme(next);
 });
 
