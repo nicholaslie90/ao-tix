@@ -271,9 +271,10 @@ table.prices td.num { text-align: right; }
 .lightbox-card-cap .lb-cap-shuttle { display: block; margin-top: 8px; font-size: 15px; font-weight: 700; }
 .lightbox-card-cap .lb-cap-shuttle a.kode { color: oklch(45% 0.1 172); text-decoration: underline; }
 .lightbox-card.lb-qr-small .lightbox-card-qr { width: 62%; margin: 0 auto; }
+/* Di bawah kartu (bukan menumpuk di sudut) supaya tak terhalang kartu/tombol lain. */
 .lightbox-zoom {
-  position: absolute; top: 16px; left: 18px; padding: 8px 12px;
-  border: 0; border-radius: 999px; background: rgba(255,255,255,.15); color: #fff;
+  position: relative; z-index: 2; margin: 16px auto 0; padding: 10px 16px;
+  border: 0; border-radius: 999px; background: rgba(255,255,255,.18); color: #fff;
   font: inherit; font-size: 14px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .lightbox-zoom[aria-pressed="true"] { background: rgba(255,255,255,.34); }
