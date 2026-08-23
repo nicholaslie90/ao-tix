@@ -260,7 +260,7 @@ table.prices td.num { text-align: right; }
 }
 .lightbox-card:active { cursor: grabbing; }
 .lightbox-card-qr {
-  display: block; width: 100%; height: auto;
+  display: block; width: 100%; height: auto; margin: 0 auto;
   image-rendering: pixelated; border-radius: 8px; -webkit-user-drag: none;
 }
 .lightbox-card-cap { color: #111; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid #eee; }
@@ -270,14 +270,12 @@ table.prices td.num { text-align: right; }
 .lightbox-card-cap .lb-cap-when { display: block; margin-top: 4px; font-size: 14px; color: #555; }
 .lightbox-card-cap .lb-cap-shuttle { display: block; margin-top: 8px; font-size: 15px; font-weight: 700; }
 .lightbox-card-cap .lb-cap-shuttle a.kode { color: oklch(45% 0.1 172); text-decoration: underline; }
-.lightbox-card.lb-qr-small .lightbox-card-qr { width: 62%; margin: 0 auto; }
 /* Di bawah kartu (bukan menumpuk di sudut) supaya tak terhalang kartu/tombol lain. */
 .lightbox-zoom {
   position: relative; z-index: 2; margin: 16px auto 0; padding: 10px 16px;
   border: 0; border-radius: 999px; background: rgba(255,255,255,.18); color: #fff;
   font: inherit; font-size: 14px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.lightbox-zoom[aria-pressed="true"] { background: rgba(255,255,255,.34); }
 .lightbox-close { position: absolute; top: 14px; right: 18px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; }
 .lightbox-nav {
   position: absolute; top: 50%; transform: translateY(-50%);

@@ -34,18 +34,19 @@ var lightboxCard = $('lightbox-card');
 var lightboxPrev = $('lightbox-prev'), lightboxNext = $('lightbox-next');
 var lightboxZoom = $('lightbox-zoom');
 
-/* Sebagian kamera HP sulit fokus pada QR besar → sediakan versi kecil.
+/* Sebagian kamera HP sulit fokus pada QR besar → 3 langkah ukuran tampil.
  * Hanya ukuran tampil yang berubah, isi QR-nya tetap sama. */
+var LB_QR_STEPS = [['100%', 'Besar'], ['62%', 'Sedang'], ['40%', 'Kecil']];
+var lbQrStep = 0;
+try { lbQrStep = Math.min(LB_QR_STEPS.length - 1, Math.max(0, +localStorage.getItem('lbQrStep') || 0)); } catch (_) {}
+
 function lbApplyQrSize() {
-  var small = false;
-  try { small = localStorage.getItem('lbQrSmall') === '1'; } catch (_) {}
-  lightboxCard.classList.toggle('lb-qr-small', small);
-  lightboxZoom.setAttribute('aria-pressed', small ? 'true' : 'false');
-  lightboxZoom.textContent = small ? 'Perbesar QR' : 'Kecilkan QR';
+  lightboxImg.style.width = LB_QR_STEPS[lbQrStep][0];
+  lightboxZoom.textContent = 'QR: ' + LB_QR_STEPS[lbQrStep][1];
 }
 function lbToggleQrSize() {
-  var small = lightboxCard.classList.contains('lb-qr-small');
-  try { localStorage.setItem('lbQrSmall', small ? '0' : '1'); } catch (_) {}
+  lbQrStep = (lbQrStep + 1) % LB_QR_STEPS.length;
+  try { localStorage.setItem('lbQrStep', lbQrStep); } catch (_) {}
   lbApplyQrSize();
 }
 
