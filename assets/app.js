@@ -32,6 +32,22 @@ var mapbox = $('mapbox'), mapboxFrame = $('mapbox-frame'), mapboxTitle = $('mapb
 var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
 var lightboxCard = $('lightbox-card');
 var lightboxPrev = $('lightbox-prev'), lightboxNext = $('lightbox-next');
+var lightboxZoom = $('lightbox-zoom');
+
+/* Sebagian kamera HP sulit fokus pada QR besar → sediakan versi kecil.
+ * Hanya ukuran tampil yang berubah, isi QR-nya tetap sama. */
+function lbApplyQrSize() {
+  var small = false;
+  try { small = localStorage.getItem('lbQrSmall') === '1'; } catch (_) {}
+  lightboxCard.classList.toggle('lb-qr-small', small);
+  lightboxZoom.setAttribute('aria-pressed', small ? 'true' : 'false');
+  lightboxZoom.textContent = small ? 'Perbesar QR' : 'Kecilkan QR';
+}
+function lbToggleQrSize() {
+  var small = lightboxCard.classList.contains('lb-qr-small');
+  try { localStorage.setItem('lbQrSmall', small ? '0' : '1'); } catch (_) {}
+  lbApplyQrSize();
+}
 
 /* ===== Crypto (cocok dengan Apps Script) ===== */
 function decryptPayload(blob, pw) {
@@ -462,6 +478,7 @@ function openLightbox(index) {
   renderLightbox();
   lbSetTransform(0, 0, 'none');   // mulai dari tengah, tanpa sisa animasi
   lbAnimating = false;
+  lbApplyQrSize();
   lightbox.hidden = false;
 }
 function closeLightbox() { lightbox.hidden = true; lightboxImg.src = ''; lbItems = []; }
@@ -536,6 +553,7 @@ modalBody.addEventListener('click', function (e) {
   openLightboxFromModal(imgs.indexOf(img));
 });
 lightbox.addEventListener('click', function (e) {
+  if (e.target.hasAttribute('data-lb-zoom')) { lbToggleQrSize(); return; }
   if (e.target.hasAttribute('data-close-lb')) { closeLightbox(); return; }
   if (e.target.hasAttribute('data-lb-prev')) { lbCommit(-1); return; }
   if (e.target.hasAttribute('data-lb-next')) { lbCommit(1); return; }
