@@ -262,6 +262,7 @@ table.prices td.num { text-align: right; }
 .lightbox-card-qr {
   display: block; width: 100%; height: auto; margin: 0 auto;
   image-rendering: pixelated; border-radius: 8px; -webkit-user-drag: none;
+  transition: width .28s cubic-bezier(.22,.61,.36,1);
 }
 .lightbox-card-cap { color: #111; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid #eee; }
 .lightbox-card-cap[hidden] { display: none; }
@@ -303,6 +304,6 @@ table.prices td.num { text-align: right; }
 /* Kurangi gerak: semua animasi jadi instan/di tempat. */
 @media (prefers-reduced-motion: reduce) {
   .spin, .modal-card, .modal-backdrop, .mapbox-card, .lightbox-backdrop { animation: none; }
-  .lightbox-card { transition: none !important; }
+  .lightbox-card, .lightbox-card-qr { transition: none !important; }
   .card:hover, .card:active { transform: none; }
 }

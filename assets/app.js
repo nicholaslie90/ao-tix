@@ -49,6 +49,7 @@ function lbToggleQrSize() {
   try { localStorage.setItem('lbQrStep', lbQrStep); } catch (_) {}
   lbApplyQrSize();
 }
+lbApplyQrSize();  // pasang ukuran awal sebelum lightbox tampil → tak ada animasi saat dibuka
 
 /* ===== Crypto (cocok dengan Apps Script) ===== */
 function decryptPayload(blob, pw) {
