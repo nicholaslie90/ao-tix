@@ -51,8 +51,45 @@ function lbToggleQrSize() {
 }
 lbApplyQrSize();  // pasang ukuran awal sebelum lightbox tampil → tak ada animasi saat dibuka
 
-/* ===== Crypto (cocok dengan Apps Script) ===== */
-function decryptPayload(blob, pw) {
+/* ===== Crypto (format sama persis dengan Apps Script) =====
+ * PBKDF2 100.000 iterasi di CryptoJS itu JS murni: ~0,5 detik di laptop dan
+ * beberapa detik di HP — ia yang menunda QR muncul, bukan unduhan datanya.
+ * WebCrypto native mengerjakan hal yang sama ~20x lebih cepat dengan parameter
+ * identik (tak ada keamanan yang dikurangi). CryptoJS hanya dimuat kalau
+ * crypto.subtle tak ada, jadi 59 KB itu keluar dari jalur muat normal. */
+function hexBytes(h) {
+  h = String(h || '');
+  var a = new Uint8Array(h.length >> 1);
+  for (var i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16);
+  return a;
+}
+function b64Bytes(b) {
+  var s = atob(String(b || '')), a = new Uint8Array(s.length);
+  for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+  return a;
+}
+function parsePlain(text) {
+  if (!text) throw new Error('wrong-password');
+  try { return JSON.parse(text); } catch (e) { throw new Error('wrong-password'); }
+}
+
+function subtleCrypto() {
+  try { return (window.crypto && window.crypto.subtle) || null; } catch (e) { return null; }
+}
+
+/* Muat CryptoJS sesuai kebutuhan (browser lama / konteks non-secure). */
+function loadCryptoJs() {
+  if (window.CryptoJS) return Promise.resolve();
+  return new Promise(function (resolve, reject) {
+    var el = document.createElement('script');
+    el.src = 'assets/crypto-js.min.js';
+    el.onload = resolve;
+    el.onerror = function () { reject(new Error('crypto-load-failed')); };
+    document.head.appendChild(el);
+  });
+}
+
+function decryptWithCryptoJs(blob, pw) {
   var key = CryptoJS.PBKDF2(pw, CryptoJS.enc.Hex.parse(blob.salt), {
     keySize: 256 / 32,
     iterations: blob.iter || 100000,
@@ -66,9 +103,28 @@ function decryptPayload(blob, pw) {
   var text;
   try { text = decrypted.toString(CryptoJS.enc.Utf8); }
   catch (e) { throw new Error('wrong-password'); }
-  if (!text) throw new Error('wrong-password');
-  try { return JSON.parse(text); }
-  catch (e) { throw new Error('wrong-password'); }
+  return parsePlain(text);
+}
+
+/* -> Promise<payload>. Password salah / blob rusak = Error('wrong-password'),
+ * sama seperti versi lama, jadi penanganan error di loginForm tak berubah. */
+function decryptPayload(blob, pw) {
+  var sub = subtleCrypto();
+  if (!sub) return loadCryptoJs().then(function () { return decryptWithCryptoJs(blob, pw); });
+
+  return sub.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits'])
+    .then(function (base) {
+      return sub.deriveBits({
+        name: 'PBKDF2',
+        salt: hexBytes(blob.salt),
+        iterations: blob.iter || 100000,
+        hash: 'SHA-256'
+      }, base, 256);
+    })
+    .then(function (bits) { return sub.importKey('raw', bits, { name: 'AES-CBC' }, false, ['decrypt']); })
+    .then(function (key) { return sub.decrypt({ name: 'AES-CBC', iv: hexBytes(blob.iv) }, key, b64Bytes(blob.ct)); })
+    .catch(function () { throw new Error('wrong-password'); })   // padding gagal = password salah
+    .then(function (buf) { return parsePlain(new TextDecoder().decode(buf)); });
 }
 
 /* ===== Fetch + load ===== */
@@ -92,12 +148,13 @@ function loadData(force) {
     lastCipherText = raw;
     var blob = JSON.parse(raw);
     if (!blob.ct) throw new Error('not-ready'); // placeholder / belum ada data
-    var data = decryptPayload(blob, password); // throw wrong-password
-    tickets = (data.tickets || []);
-    generatedAt = data.generatedAt || null;
-    render();
-    updateStatus();
-    return true;
+    return decryptPayload(blob, password).then(function (data) {   // reject: wrong-password
+      tickets = (data.tickets || []);
+      generatedAt = data.generatedAt || null;
+      render();
+      updateStatus();
+      return true;
+    });
   });
 }
 
