@@ -68,6 +68,36 @@ Gmail ──(Apps Script tiap 1 jam)──▶ data/tickets.enc.json (terenkripsi
    jendela keberangkatan, jadi murah. Tanpa trigger ini semuanya tetap jalan,
    cuma link lacaknya lebih sering belum terisi.
 
+### 3b. Deploy skrip tanpa copy-paste (clasp)
+Menempel `Code.gs` lewat editor itu menyakitkan, apalagi dari HP. Sekali set up,
+push cukup satu perintah dari laptop:
+
+```sh
+npm i -g @google/clasp
+clasp --user aotix login            # login sebagai akun Gmail penerima tiket
+```
+
+Aktifkan dulu **Google Apps Script API** di
+[script.google.com/home/usersettings](https://script.google.com/home/usersettings)
+dengan akun yang sama, kalau tidak clasp balas `caller does not have permission`.
+
+Lalu buat `.clasp.json` di root repo (sengaja di-gitignore — `scriptId` ada di URL
+editor, `rootDir` beda per mesin):
+
+```json
+{ "scriptId": "<dari URL editor>", "rootDir": "apps-script" }
+```
+
+Sesudah itu tiap perubahan cukup:
+
+```sh
+clasp --user aotix push --force
+```
+
+`push` mengganti seluruh isi proyek dengan isi `apps-script/`, jadi pastikan tak
+ada suntingan di editor yang belum masuk repo — cek dengan `clasp pull` ke folder
+kosong lalu diff.
+
 ### 4. Buka web
 Buka URL Pages, masukkan `TICKET_PASSWORD`. Centang "Ingat di perangkat ini" agar tak
 perlu ketik ulang di perangkat itu.
