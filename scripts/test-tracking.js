@@ -23,7 +23,7 @@ var sandbox = {
   }
 };
 new Function('Logger', 'Utilities', 'globalThis',
-  src + '\nglobalThis.__x = { manifestKey_, manifestUrl_, pruneManifestCache_, MANIFEST_MAP_URL };')
+  src + '\nglobalThis.__x = { manifestKey_, manifestUrl_, pruneManifestCache_, routeCovers_, normStop_, MANIFEST_MAP_URL };')
   (sandbox.Logger, sandbox.Utilities, sandbox);
 var x = sandbox.__x;
 
@@ -66,6 +66,28 @@ assert.strictEqual(x.manifestUrl_(H.toUpperCase()), x.MANIFEST_MAP_URL + H.toUpp
 ].forEach(function (bad) {
   assert.strictEqual(x.manifestUrl_(bad), '', 'manifestCode jahat lolos: ' + bad);
 });
+
+/* --- routeCovers_ : cadangan saat kode armada tiket != hullCode manifest --- */
+var ROW = { outletList: [
+  { nama: 'PARK SERPONG' }, { nama: 'SEKOLAH LENTERA' }, { nama: 'RUKO HIVE CREST' },
+  { nama: 'LIPPO VILLAGE MAXX BOX' }
+]};
+// Naik lalu turun, berurutan -> cocok.
+assert.strictEqual(x.routeCovers_(ROW, 'PARK SERPONG', 'LIPPO VILLAGE MAXX BOX'), true);
+assert.strictEqual(x.routeCovers_(ROW, 'SEKOLAH LENTERA', 'LIPPO VILLAGE MAXX BOX'), true);
+// Beda spasi/huruf besar-kecil tak boleh bikin meleset.
+assert.strictEqual(x.routeCovers_(ROW, '  park   serpong ', 'Lippo Village Maxx Box'), true);
+// Arah TERBALIK bukan rute yang sama — ini yang mencegah salah bus.
+assert.strictEqual(x.routeCovers_(ROW, 'LIPPO VILLAGE MAXX BOX', 'PARK SERPONG'), false);
+// Titik yang tak ada di rute.
+assert.strictEqual(x.routeCovers_(ROW, 'BLOK M (JL. PALATEHAN II)', 'LIPPO VILLAGE MAXX BOX'), false);
+assert.strictEqual(x.routeCovers_(ROW, 'PARK SERPONG', 'TEMPAT ENTAH'), false);
+// Naik == turun tak masuk akal.
+assert.strictEqual(x.routeCovers_(ROW, 'PARK SERPONG', 'PARK SERPONG'), false);
+// Input kosong / rute kosong.
+assert.strictEqual(x.routeCovers_(ROW, '', 'LIPPO VILLAGE MAXX BOX'), false);
+assert.strictEqual(x.routeCovers_(ROW, 'PARK SERPONG', ''), false);
+assert.strictEqual(x.routeCovers_({}, 'PARK SERPONG', 'LIPPO VILLAGE MAXX BOX'), false);
 
 /* --- pruneManifestCache_ : cache tak boleh tumbuh tanpa batas (9 KB/properti) --- */
 var iso = function (ms) { return new Date(ms).toISOString().slice(0, 10); };

@@ -487,6 +487,12 @@ function tripRows(t) {
   var rows = [];
   if (t.driverName) rows.push(['Sopir', esc(t.driverName)]);
   if (t.vehiclePlate) rows.push(['Nomor Plat', '<span class="kode">' + esc(t.vehiclePlate) + '</span>']);
+  // Manifest AO kadang menyebut armada lain daripada yang tertulis di tiket.
+  // Yang di manifest itu yang benar-benar jalan, jadi tampilkan apa adanya.
+  if (t.tripHull) {
+    rows.push(['Armada Sebenarnya', '<span class="kode">' + esc(t.tripHull) + '</span>' +
+      '<span class="muted"> (tiket tertulis ' + esc(t.shuttleCodePergi || '—') + ')</span>']);
+  }
   if (t.tripEta) rows.push(['Estimasi Tiba', esc(fmtTripTime(t.tripEta))]);
   if (t.tripRef) rows.push(['Kode Perjalanan', '<span class="kode">' + esc(t.tripRef) + '</span>']);
   if ((t.tripStops || []).length) rows.push(['Pemberhentian', stopsHtml(t)]);

@@ -385,15 +385,38 @@ function loadManifestCache_() {
 
 /** Sisir ekor daftar manifest, ambil hanya hullCode yang kita pakai.
  *  wanted = { AOLV021: true, ... }. Return { key: manifestCode }. */
-function scanManifests_(wanted) {
-  var found = {}, pages = 0;
+function normStop_(v) { return String(v || '').toUpperCase().replace(/\s+/g, ' ').trim(); }
+
+/** Rute manifest memuat titik naik lalu titik turun tiket ini, berurutan? */
+function routeCovers_(row, from, to) {
+  if (!from || !to) return false;
+  var names = (row.outletList || []).map(function (o) { return normStop_(o.nama); });
+  var a = names.indexOf(normStop_(from)), b = names.indexOf(normStop_(to));
+  return a >= 0 && b > a;
+}
+
+/*
+ * Sisir ekor daftar manifest dan cocokkan tiap baris ke "target" tiket kita.
+ *
+ * Dulu pencocokannya cuma hullCode + jam berangkat, dan itu rapuh: API booking
+ * AO dan sistem manifestnya bisa berbeda soal armada. Contoh nyata 2026-09-17
+ * 06:00 — tiket tertulis AOLV025, manifest satu-satunya untuk jam itu AOLV021.
+ * Jadi kalau kode armada tak cocok, kita jatuh ke rute: manifest dengan jam
+ * berangkat sama yang rutenya memuat titik naik lalu titik turun tiket.
+ * Kecocokan lewat rute hanya dipakai bila TUNGGAL — kalau ada dua kandidat,
+ * lebih baik kosong daripada menampilkan bus orang lain.
+ *
+ * targets: [{ key, code, time, from, to }] -> return { key: trip }
+ */
+function scanManifests_(targets) {
+  var exact = {}, byRoute = {}, pages = 0;
   try {
     // limit=1 cuma untuk tahu lastPage — murah, tak menarik data.
     var head = UrlFetchApp.fetch(MANIFEST_API + '?limit=1&page=1', { muteHttpExceptions: true });
-    if (head.getResponseCode() !== 200) { Logger.log('manifest head HTTP %s', head.getResponseCode()); return found; }
+    if (head.getResponseCode() !== 200) { Logger.log('manifest head HTTP %s', head.getResponseCode()); return {}; }
     var total = ((JSON.parse(head.getContentText()) || {}).pagination || {}).total || 0;
     var last = Math.ceil(total / MANIFEST_PAGE_SIZE);
-    if (!last) return found;
+    if (!last) return {};
 
     for (var pg = last; pg > 0 && pages < MANIFEST_MAX_PAGES; pg--, pages++) {
       var res = UrlFetchApp.fetch(
@@ -401,14 +424,35 @@ function scanManifests_(wanted) {
       if (res.getResponseCode() !== 200) { Logger.log('manifest page %s HTTP %s', pg, res.getResponseCode()); break; }
       var rows = (JSON.parse(res.getContentText()) || {}).manifest || [];
       rows.forEach(function (r) {
+        if (!r.manifestCode) return;
         var hull = String(r.hullCode || '').toUpperCase().trim();
-        if (!wanted[hull]) return;                       // bukan armada kita -> buang
-        var key = manifestKey_(hull, String(r.timeOfDeparture || '').replace(' ', 'T'));
-        if (key && r.manifestCode) found[key] = tripFromRow_(r);
+        var time = String(r.timeOfDeparture || '').trim();
+        targets.forEach(function (tg) {
+          if (time !== tg.time) return;                  // jam berangkat harus persis
+          if (hull === tg.code) { exact[tg.key] = tripFromRow_(r); return; }
+          if (routeCovers_(r, tg.from, tg.to)) {
+            (byRoute[tg.key] = byRoute[tg.key] || []).push(tripFromRow_(r));
+          }
+        });
       });
     }
   } catch (e) { Logger.log('scanManifests_ error: %s', e); }
-  Logger.log('Manifest: %s halaman disisir, %s entri armada kita.', pages, Object.keys(found).length);
+
+  var found = {}, viaRoute = 0;
+  targets.forEach(function (tg) {
+    if (exact[tg.key]) { found[tg.key] = exact[tg.key]; return; }
+    var cand = byRoute[tg.key] || [];
+    if (cand.length === 1) {
+      found[tg.key] = cand[0];
+      viaRoute++;
+      Logger.log('Manifest: %s dicocokkan lewat RUTE — tiket bilang %s, manifest %s (%s).',
+        tg.key, tg.code, cand[0].h, cand[0].p);
+    } else if (cand.length > 1) {
+      Logger.log('Manifest: %s punya %s kandidat rute, dilewati (tak mau salah bus).', tg.key, cand.length);
+    }
+  });
+  Logger.log('Manifest: %s halaman disisir, %s cocok (%s lewat rute).',
+    pages, Object.keys(found).length, viaRoute);
   return found;
 }
 
@@ -421,6 +465,7 @@ function tripFromRow_(r) {
     p: String(r.numberPlate || '').trim(),
     e: String(r.eta || '').trim(),
     r: String(r.manifestReal || '').trim(),      // kode perjalanan, buat rujukan ke CS AO
+    h: String(r.hullCode || '').toUpperCase().trim(),   // armada sebenarnya menurut manifest
     s: (r.outletList || []).map(function (o) { return String(o.nama || '').trim(); })
         .filter(String).slice(0, 12)
   };
@@ -435,21 +480,26 @@ function tripFromRow_(r) {
  *  manifestCode saja, biar tak perlu sisir ulang sesudah update. */
 function tripOf_(v) {
   if (!v) return null;
-  return typeof v === 'string' ? { c: v, d: '', p: '', e: '', r: '', s: [] } : v;
+  return typeof v === 'string' ? { c: v, d: '', p: '', e: '', r: '', h: '', s: [] } : v;
 }
 
 /** Isi t.trackUrl dari manifest. In-place, fail-safe (gagal = trackUrl kosong). */
 function resolveTrackUrls_(tickets) {
   var props = PropertiesService.getScriptProperties();
-  var cache = loadManifestCache_(), wanted = {}, keyed = [];
+  var cache = loadManifestCache_(), targets = [], keyed = [];
 
   tickets.forEach(function (t) {
     t.trackUrl = ''; t.driverName = ''; t.vehiclePlate = '';
-    t.tripEta = ''; t.tripRef = ''; t.tripStops = [];
+    t.tripEta = ''; t.tripRef = ''; t.tripHull = ''; t.tripStops = [];
     if (!t.shuttleCodePergi || !t.departISO || !isActive_(t)) return;
     var key = manifestKey_(t.shuttleCodePergi, t.departISO);
     if (!key) return;
-    wanted[String(t.shuttleCodePergi).toUpperCase().trim()] = true;
+    targets.push({
+      key: key,
+      code: String(t.shuttleCodePergi).toUpperCase().trim(),
+      time: t.departISO.slice(0, 10) + ' ' + t.departISO.slice(11, 16),
+      from: t.departurePoint, to: t.destinationPoint
+    });
     keyed.push({ t: t, key: key });
   });
   if (!keyed.length) { Logger.log('Tracking: tak ada tiket aktif berkode.'); return; }
@@ -463,7 +513,7 @@ function resolveTrackUrls_(tickets) {
   var stale = missing && (Date.now() - lastAt > MANIFEST_RETRY_MS);
 
   if (lastDay !== today || stale) {
-    var found = scanManifests_(wanted);
+    var found = scanManifests_(targets);
     for (var k in found) { if (found.hasOwnProperty(k)) cache[k] = found[k]; }
     cache = pruneManifestCache_(cache);
     props.setProperty('MANIFEST_CACHE', JSON.stringify(cache));
@@ -477,7 +527,13 @@ function resolveTrackUrls_(tickets) {
   keyed.forEach(function (k) {
     var trip = tripOf_(cache[k.key]);
     var url = trip ? manifestUrl_(trip.c) : '';
-    if (!url) { Logger.log('Tracking: %s belum ada manifest-nya.', k.key); return; }
+    if (!url) {
+      // Cetak rutenya juga: kalau kode armada tak cocok DAN rute tak cocok,
+      // baris ini yang memberi tahu rute mana yang sebenarnya dicari.
+      Logger.log('Tracking: %s belum ada manifest-nya (rute %s -> %s).',
+        k.key, k.t.departurePoint || '?', k.t.destinationPoint || '?');
+      return;
+    }
     k.t.trackUrl = url;
     // Detail dari manifest: sopir, plat, estimasi tiba, urutan pemberhentian.
     k.t.driverName = trip.d || '';
@@ -485,6 +541,9 @@ function resolveTrackUrls_(tickets) {
     k.t.tripEta = trip.e || '';
     k.t.tripRef = trip.r || '';
     k.t.tripStops = trip.s || [];
+    // Kalau manifest menyebut armada lain, itu yang benar-benar jalan.
+    k.t.tripHull = (trip.h && trip.h !== String(k.t.shuttleCodePergi).toUpperCase().trim())
+      ? trip.h : '';
     filled++;
   });
   Logger.log('Tracking: %s dari %s tiket aktif dapat link.', filled, keyed.length);
