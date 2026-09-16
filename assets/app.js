@@ -5,6 +5,10 @@
 // menunggu build GitHub Pages). Fallback ke file lokal kalau raw gagal.
 var DATA_RAW = 'https://raw.githubusercontent.com/nicholaslie90/ao-tix/main/data/tickets.enc.json';
 var DATA_LOCAL = 'data/tickets.enc.json';
+// File kecil berisi tiket terdekat saja (ditulis Apps Script). Diunduh lebih
+// dulu supaya QR tampil tanpa menunggu ±180 KB data lengkap.
+var NEXT_RAW = 'https://raw.githubusercontent.com/nicholaslie90/ao-tix/main/data/next.enc.json';
+var NEXT_LOCAL = 'data/next.enc.json';
 var POLL_MS = 60000;
 var STORE_KEY = 'aoshuttle_pw';
 var THEME_KEY = 'aoshuttle_theme';
@@ -28,7 +32,6 @@ var upcomingEl = $('upcoming');
 var returnWarnEl = $('return-warning');
 var emptyEl = $('empty');
 var modal = $('modal'), modalBody = $('modal-body');
-var mapbox = $('mapbox'), mapboxFrame = $('mapbox-frame'), mapboxTitle = $('mapbox-title');
 var lightbox = $('lightbox'), lightboxImg = $('lightbox-img'), lightboxCap = $('lightbox-cap');
 var lightboxCard = $('lightbox-card');
 var lightboxPrev = $('lightbox-prev'), lightboxNext = $('lightbox-next');
@@ -128,12 +131,12 @@ function decryptPayload(blob, pw) {
 }
 
 /* ===== Fetch + load ===== */
-function fetchBlob() {
+function fetchBlob(raw, local) {
   var bust = '?t=' + Date.now();
-  return fetch(DATA_RAW + bust, { cache: 'no-store' })
+  return fetch((raw || DATA_RAW) + bust, { cache: 'no-store' })
     .then(function (r) { if (!r.ok) throw new Error('raw'); return r.text(); })
     .catch(function () { // fallback ke file di Pages
-      return fetch(DATA_LOCAL + bust, { cache: 'no-store' }).then(function (r) {
+      return fetch((local || DATA_LOCAL) + bust, { cache: 'no-store' }).then(function (r) {
         if (!r.ok) throw new Error('fetch-failed-' + r.status);
         return r.text();
       });
@@ -142,19 +145,68 @@ function fetchBlob() {
 
 /* Tarik data, dekripsi, render. force=true selalu render ulang. */
 function loadData(force) {
-  return fetchBlob().then(function (raw) {
+  return fetchBlob(DATA_RAW, DATA_LOCAL).then(function (raw) {
     lastChecked = Date.now(); // selalu catat waktu cek, walau data tak berubah
     if (!force && raw === lastCipherText) { updateStatus(); return false; }
     lastCipherText = raw;
     var blob = JSON.parse(raw);
     if (!blob.ct) throw new Error('not-ready'); // placeholder / belum ada data
     return decryptPayload(blob, password).then(function (data) {   // reject: wrong-password
+      var openCode = openTicketIdx >= 0 && tickets[openTicketIdx]
+        ? tickets[openTicketIdx].bookingCode : '';
+      fullLoaded = true;
       tickets = (data.tickets || []);
       generatedAt = data.generatedAt || null;
+      realignOpen(openCode);     // index lama menunjuk array fase cepat
       render();
       updateStatus();
       return true;
     });
+  });
+}
+
+/* Fase cepat: unduh file kecil berisi tiket terdekat, tampilkan QR-nya, lalu
+ * biarkan data lengkap menyusul di latar belakang. Resolve true kalau berhasil
+ * dipakai. Kegagalan apa pun (file belum ada, password salah) dibiarkan diam —
+ * fase penuh tetap berjalan dan menentukan hasil akhir. */
+var fullLoaded = false;
+function loadNextOnly() {
+  return fetchBlob(NEXT_RAW, NEXT_LOCAL).then(function (raw) {
+    var blob = JSON.parse(raw);
+    if (!blob.ct) throw new Error('not-ready');
+    return decryptPayload(blob, password);
+  }).then(function (data) {
+    // Data penuh keburu tiba: jangan timpa dengan yang cuma satu tiket.
+    if (fullLoaded) return false;
+    var list = data.tickets || [];
+    if (!list.length) return false;
+    tickets = list;
+    render();
+    return true;
+  });
+}
+
+/* Fase cepat memakai array berisi satu tiket; begitu data penuh tiba isi
+ * `tickets` berganti dan index lama tak lagi menunjuk tiket yang sama.
+ * Samakan ulang lewat kode booking supaya modal/lightbox yang sedang terbuka
+ * tidak salah rujuk. */
+function realignOpen(code) {
+  if (!code) return;
+  var i = -1;
+  tickets.forEach(function (t, n) { if (t.bookingCode === code) i = n; });
+  if (i < 0) return;
+  if (openTicketIdx >= 0) openTicketIdx = i;
+  if (autoIdx >= 0) autoIdx = i;
+}
+
+/* Dua fase sekaligus: keduanya dimulai bersamaan, yang kecil hampir selalu
+ * menang dan langsung memunculkan QR. */
+function startLoad() {
+  var full = loadData(true);
+  loadNextOnly().then(function (ok) { if (ok) showApp(); }).catch(function () { /* diam */ });
+  return full.then(function () {
+    if (!appShown) showApp();
+    else maybeAdvanceAuto();
   });
 }
 
@@ -176,11 +228,11 @@ loginForm.addEventListener('submit', function (e) {
   if (!pw) return;
   password = pw;
   loginBusy(true);
-  loadData(true).then(function () {
+  startLoad().then(function () {
     loginBusy(false);
     if (rememberInput.checked) localStorage.setItem(STORE_KEY, pw);
     else sessionStorage.setItem(STORE_KEY, pw);
-    showApp();
+    showApp();          // no-op kalau fase cepat sudah menampilkannya
   }).catch(function (err) {
     loginBusy(false);
     password = null;
@@ -197,7 +249,10 @@ loginForm.addEventListener('submit', function (e) {
 
 function showLoginError(msg) { loginError.textContent = msg; loginError.hidden = false; }
 
+var appShown = false;
 function showApp() {
+  if (appShown) return;
+  appShown = true;
   loginEl.hidden = true;
   appEl.hidden = false;
   startPolling();
@@ -247,6 +302,7 @@ function maybeAdvanceAuto() {
 
 function logout() {
   password = null; tickets = []; lastCipherText = null;
+  appShown = false; fullLoaded = false;
   localStorage.removeItem(STORE_KEY); sessionStorage.removeItem(STORE_KEY);
   stopPolling();
   appEl.hidden = true; loginEl.hidden = false;
@@ -458,13 +514,15 @@ function shuttleText(t) { return shuttleCodes(t).join(' / '); }
  * ada menjelang/selama trip, jadi tanpa itu kita jatuh ke halaman Bus Terdekat
  * resmi — user pilih outlet keberangkatannya sendiri di sana. */
 var BUS_TERDEKAT_URL = 'https://aotransportbus.com/bus-terdekat';
+/* Selalu tab baru, tidak pernah iframe. Peta asmat itu SPA yang bergantung pada
+ * storage; di iframe lintas-origin storage-nya dipartisi (dan Brave memblokirnya
+ * sama sekali), sehingga isinya kosong/putih. Di tab sendiri ia jalan normal. */
 function shuttleAnchors(codes, trackUrl) {
   return codes.map(function (c, i) {
     var live = !!trackUrl && i === 0;           // trackUrl selalu untuk kode leg pergi
-    return '<a class="kode"' +
-      (live ? ' data-map="' + esc(c) + '"' : ' target="_blank" rel="noopener"') +
+    return '<a class="kode" target="_blank" rel="noopener"' +
       ' href="' + esc(live ? trackUrl : BUS_TERDEKAT_URL) + '" title="' +
-      (live ? 'Lacak posisi shuttle' : 'Buka Bus Terdekat (pilih outlet keberangkatan)') +
+      (live ? 'Lacak posisi shuttle (tab baru)' : 'Buka Bus Terdekat (pilih outlet keberangkatan)') +
       '">' + esc(c) + '</a>';
   }).join(' · ');
 }
@@ -680,36 +738,7 @@ function lbEndDrag(e) {
 lightboxCard.addEventListener('pointerup', lbEndDrag);
 lightboxCard.addEventListener('pointercancel', lbEndDrag);
 
-/* Peta shuttle inline: cegat klik link kode shuttle (di modal maupun caption
- * lightbox) dan buka iframe kecil alih-alih tab baru. href asli tetap ada
- * sebagai fallback (buka di tab baru via klik-tengah/cmd-klik). */
-var mapUrl = '';
-function openMap(code, url) {
-  mapUrl = url;
-  mapboxTitle.textContent = code;
-  mapboxFrame.src = url;
-  mapbox.hidden = false;
-}
-function closeMap() { mapbox.hidden = true; mapboxFrame.src = 'about:blank'; mapUrl = ''; }
-document.addEventListener('click', function (e) {
-  var a = e.target.closest && e.target.closest('a[data-map]');
-  if (!a) return;
-  if (e.metaKey || e.ctrlKey || e.shiftKey) return;   // biarkan buka tab baru
-  e.preventDefault();
-  openMap(a.getAttribute('data-map'), a.href);
-});
-$('mapbox-refresh').addEventListener('click', function () {
-  if (mapUrl) mapboxFrame.src = mapUrl;               // set ulang src = reload iframe
-});
-mapbox.addEventListener('click', function (e) {
-  if (e.target.hasAttribute('data-close-map')) closeMap();
-});
-
 document.addEventListener('keydown', function (e) {
-  if (!mapbox.hidden) {
-    if (e.key === 'Escape') closeMap();
-    return;
-  }
   if (!lightbox.hidden) {
     if (e.key === 'Escape') closeLightbox();
     else if (e.key === 'ArrowLeft') lbCommit(-1);
@@ -957,6 +986,5 @@ refreshBtn.addEventListener('click', function () {
   var saved = localStorage.getItem(STORE_KEY) || sessionStorage.getItem(STORE_KEY);
   if (!saved) { pwInput.focus(); return; }
   password = saved;
-  loadData(true).then(function () { showApp(); })
-    .catch(function () { password = null; pwInput.focus(); });
+  startLoad().catch(function () { password = null; pwInput.focus(); });
 })();

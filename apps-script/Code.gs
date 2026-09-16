@@ -52,6 +52,10 @@ function syncTickets() {
   embedBarcodes_(tickets);        // simpan QR sebagai data URI utk tiket aktif (offline)
   resolveTrackUrls_(tickets);     // isi link lacak posisi (kosong bila belum jalan)
 
+  // Duluan, dan di luar cek LAST_HASH di bawah: tiket terdekat bisa berganti
+  // karena waktu berjalan walaupun data tiketnya sendiri tidak berubah.
+  pushNextTicket_(tickets, props);
+
   // Hash HANYA atas data tiket (tanpa generatedAt yang selalu berubah),
   // supaya tak ada commit sampah tiap run saat data tiket tidak berubah.
   var hash = sha256Hex_(JSON.stringify(tickets));
@@ -65,6 +69,51 @@ function syncTickets() {
   pushToGitHub_(JSON.stringify(enc));
   props.setProperty('LAST_HASH', hash);
   Logger.log('Push %s tiket ke GitHub.', tickets.length);
+}
+
+/* ----------------------- File kecil "tiket terdekat" --------------------- */
+/*
+ * Web harus mengunduh seluruh data (±180 KB, berisi semua QR) sebelum bisa
+ * menampilkan QR tiket terdekat. Jadi kita tulis juga file kedua yang isinya
+ * HANYA tiket terdekat — web mengunduh yang kecil ini lebih dulu, menampilkan
+ * QR-nya, lalu memuat sisanya di latar belakang.
+ *
+ * Formatnya sama persis dengan tickets.enc.json (dienkripsi dengan password
+ * yang sama), jadi web memakai jalur dekripsi yang sama.
+ */
+var GITHUB_NEXT_PATH = 'data/next.enc.json';
+
+/** Tiket paling relevan "sekarang": keberangkatan terdekat yang belum lewat
+ *  2 jam. Sengaja sama dengan ticketToAutoOpen() di assets/app.js — file ini
+ *  memang untuk tiket yang akan dibuka web duluan. */
+function nextTicket_(tickets) {
+  var cutoff = Date.now() - 2 * 3600000, best = null, bestDep = Infinity;
+  tickets.forEach(function (t) {
+    var dep = Date.parse(t.departISO || '');
+    if (isNaN(dep) || dep <= cutoff) return;
+    if (dep < bestDep) { bestDep = dep; best = t; }
+  });
+  return best;
+}
+
+/** Push file kecil bila isinya berubah. Hash sendiri, terpisah dari LAST_HASH:
+ *  tiket terdekat bisa berganti karena waktu berjalan walau data tiket sama. */
+function pushNextTicket_(tickets, props) {
+  var next = nextTicket_(tickets);
+  var body = next ? [next] : [];
+  var hash = sha256Hex_(JSON.stringify(body));
+  if (props.getProperty('LAST_NEXT_HASH') === hash) return;
+  try {
+    var payload = JSON.stringify({ generatedAt: new Date().toISOString(), tickets: body });
+    var enc = encryptPayload_(payload, props.getProperty('TICKET_PASSWORD'));
+    pushToGitHub_(JSON.stringify(enc), GITHUB_NEXT_PATH);
+    props.setProperty('LAST_NEXT_HASH', hash);
+    Logger.log('Push tiket terdekat (%s).', next ? next.bookingCode : '(kosong)');
+  } catch (e) {
+    // Gagal di sini tak boleh menggagalkan push data utama — web tetap jalan
+    // tanpa file kecil, cuma kembali ke pemuatan satu tahap.
+    Logger.log('Push tiket terdekat gagal: %s', e);
+  }
 }
 
 /** Simpan hanya tiket yang tanggal berangkatnya HARI INI atau setelahnya (WIB).
@@ -636,11 +685,11 @@ function embedBarcodes_(tickets) {
 
 /* ------------------------------- GitHub -------------------------------- */
 
-function pushToGitHub_(content) {
+function pushToGitHub_(content, pathOverride) {
   var props = PropertiesService.getScriptProperties();
   var owner = props.getProperty('GITHUB_OWNER');
   var repo = props.getProperty('GITHUB_REPO');
-  var path = props.getProperty('GITHUB_PATH') || 'data/tickets.enc.json';
+  var path = pathOverride || props.getProperty('GITHUB_PATH') || 'data/tickets.enc.json';
   var branch = props.getProperty('GITHUB_BRANCH') || 'main';
   var token = props.getProperty('GITHUB_TOKEN');
   if (!owner || !repo || !token) throw new Error('GITHUB_OWNER/REPO/TOKEN belum di-set.');

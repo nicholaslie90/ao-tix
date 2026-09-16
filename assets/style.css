@@ -185,27 +185,6 @@ a { color: var(--accent); }
 .kode { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
 .shuttle { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); font-weight: 600; white-space: nowrap; }
 
-/* ----- Peta shuttle inline ----- */
-/* z-index di atas lightbox (40): link kode shuttle juga ada di caption lightbox */
-.mapbox { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; }
-.mapbox-backdrop { position: absolute; inset: 0; background: var(--backdrop); }
-.mapbox-card {
-  position: relative; width: 100%; max-width: 560px; height: min(72vh, 560px);
-  display: flex; flex-direction: column; overflow: hidden;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
-  box-shadow: var(--shadow-2); animation: popIn .2s var(--ease-out);
-}
-.mapbox-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); }
-.mapbox-bar .kode { font-weight: 700; margin-right: auto; }
-.mapbox-bar button {
-  display: flex; align-items: center; background: transparent; border: 0;
-  color: var(--muted); font-size: 18px; line-height: 1; padding: 6px;
-  border-radius: 8px; transition: color .15s, background .15s;
-}
-.mapbox-bar button:hover { color: var(--text); background: var(--panel-2); }
-.mapbox-close { font-size: 26px; }
-.mapbox-frame { flex: 1; width: 100%; border: 0; background: #fff; }
-
 /* ----- Modal ----- */
 .modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 18px; }
 .modal-backdrop { position: absolute; inset: 0; background: var(--backdrop); animation: fadeIn .15s ease-out; }
@@ -308,7 +287,7 @@ table.prices td.num { text-align: right; }
 
 /* Kurangi gerak: semua animasi jadi instan/di tempat. */
 @media (prefers-reduced-motion: reduce) {
-  .spin, .modal-card, .modal-backdrop, .mapbox-card, .lightbox-backdrop { animation: none; }
+  .spin, .modal-card, .modal-backdrop, .lightbox-backdrop { animation: none; }
   .lightbox-card, .lightbox-card-qr { transition: none !important; }
   .card:hover, .card:active { transform: none; }
 }
