@@ -60,6 +60,18 @@ function debugReservasiList() {
   }).sort();
   Logger.log('KANDIDAT TRACKING: %s', kandidat.join(', ') || '(tak ada)');
 
-  // Satu reservasi penuh untuk dibaca manual — utamakan yang berangkat paling awal.
-  Logger.log('CONTOH:\n%s', JSON.stringify(arr[0], null, 2).slice(0, 3000));
+  // Inti pertanyaannya: url_tracking terisi untuk booking yang SUDAH dapat
+  // kendaraan? Kalau ya, resolveTrackUrls_ + OUTLET_IDS + trigger refreshTracking
+  // bisa dibuang dan link tersedia sejak kendaraan di-assign (H-1), bukan cuma
+  // beberapa menit sebelum bus tiba di outlet.
+  var berkode = arr.filter(function (r) { return String(r.kode_kendaraan || '').trim(); });
+  var berlink = berkode.filter(function (r) { return String(r.url_tracking || '').trim(); });
+  Logger.log('PUNYA kode_kendaraan: %s dari %s reservasi; di antaranya url_tracking terisi: %s',
+    berkode.length, arr.length, berlink.length);
+
+  berkode.slice(0, 10).forEach(function (r) {
+    Logger.log('  %s  %s %s  kode=%s  url_tracking=%s',
+      r.kode_booking, r.tgl_berangkat, r.jam_berangkat,
+      r.kode_kendaraan, String(r.url_tracking || '') || '(kosong)');
+  });
 }

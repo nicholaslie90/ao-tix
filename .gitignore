@@ -1,2 +1,4 @@
 .superpowers/
 .clasp.json
+.claude/settings.local.json
+.claude/.clasp-pushed
