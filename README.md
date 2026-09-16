@@ -59,6 +59,14 @@ Gmail ──(Apps Script tiap 1 jam)──▶ data/tickets.enc.json (terenkripsi
 6. Trigger (⏰) → Add trigger:
    - Function: `syncTickets`
    - Event source: **Time-driven** → **Hour timer** → **Every hour**.
+7. Trigger kedua (untuk link lacak posisi shuttle):
+   - Function: `refreshTracking`
+   - Event source: **Time-driven** → **Minutes timer** → **Every 15 minutes**.
+
+   Link lacak hanya muncul selagi bus menuju outlet keberangkatan, jadi trigger
+   per jam sering meleset. `refreshTracking` keluar tanpa kerja apa pun di luar
+   jendela keberangkatan, jadi murah. Tanpa trigger ini semuanya tetap jalan,
+   cuma link lacaknya lebih sering belum terisi.
 
 ### 4. Buka web
 Buka URL Pages, masukkan `TICKET_PASSWORD`. Centang "Ingat di perangkat ini" agar tak
