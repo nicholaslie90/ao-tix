@@ -59,14 +59,9 @@ Gmail ──(Apps Script tiap 1 jam)──▶ data/tickets.enc.json (terenkripsi
 6. Trigger (⏰) → Add trigger:
    - Function: `syncTickets`
    - Event source: **Time-driven** → **Hour timer** → **Every hour**.
-7. Trigger kedua (untuk link lacak posisi shuttle):
-   - Function: `refreshTracking`
-   - Event source: **Time-driven** → **Minutes timer** → **Every 15 minutes**.
-
-   Link lacak hanya muncul selagi bus menuju outlet keberangkatan, jadi trigger
-   per jam sering meleset. `refreshTracking` keluar tanpa kerja apa pun di luar
-   jendela keberangkatan, jadi murah. Tanpa trigger ini semuanya tetap jalan,
-   cuma link lacaknya lebih sering belum terisi.
+   Cukup satu trigger ini. Link lacak diambil dari manifest yang sudah ada sejak
+   H-1, jadi tak perlu trigger rapat. (Kalau pernah memasang trigger
+   `refreshTracking` dari versi sebelumnya, hapus — fungsinya sudah tidak ada.)
 
 ### 3b. Deploy skrip tanpa copy-paste (clasp)
 Menempel `Code.gs` lewat editor itu menyakitkan, apalagi dari HP. Sekali set up,
@@ -101,6 +96,23 @@ kosong lalu diff.
 ### 4. Buka web
 Buka URL Pages, masukkan `TICKET_PASSWORD`. Centang "Ingat di perangkat ini" agar tak
 perlu ketik ulang di perangkat itu.
+
+## Lacak posisi shuttle
+Kode shuttle di web menautkan ke peta `live.tracking.asmat.app`. URL-nya dirakit
+dari `manifestCode`, dicocokkan lewat `hullCode` + `timeOfDeparture` pada
+`tracking.asmat.app/api/v1/manifest`.
+
+Bukan dari `getTracking/<outlet>` (feed "Bus Terdekat"): feed itu dihitung dari
+GPS, dan armada AOLV tak pernah mengirim GPS — `lastGpsPings` dan
+`historyLocation` selalu 0, bahkan untuk trip yang sudah selesai. Jadi AOLV tak
+pernah muncul di sana. Manifest tidak bergantung GPS.
+
+Konsekuensinya: peta menampilkan rute, jadwal, sopir, dan plat — **bukan posisi
+bus**. Kalau AO menyalakan telemetri AOLV, posisi muncul sendiri tanpa ubah kode.
+
+Daftar manifest tak bisa difilter dan memuat manifest operator lain, jadi
+penyisiran dibatasi: sekali sehari, 5 halaman terakhir, dan hanya baris dengan
+`hullCode` milik tiket kita yang disimpan (cache di Script Properties).
 
 ## Catatan keamanan
 - Repo boleh publik: `tickets.enc.json` terenkripsi. Tanpa password tak terbaca.
