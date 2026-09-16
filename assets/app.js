@@ -367,6 +367,27 @@ function routeFromPax(t) {
   return p ? p.route : '';
 }
 
+/* Detail dari manifest AO (sopir, plat, estimasi tiba, urutan pemberhentian).
+ * Semuanya opsional: manifest baru terbit H-1, dan sebagian field bisa kosong.
+ * Baris yang datanya tak ada tidak ditampilkan sama sekali. */
+function tripRows(t) {
+  var rows = [];
+  if (t.driverName) rows.push(['Sopir', esc(t.driverName)]);
+  if (t.vehiclePlate) rows.push(['Nomor Plat', '<span class="kode">' + esc(t.vehiclePlate) + '</span>']);
+  if (t.tripEta) rows.push(['Estimasi Tiba', esc(fmtTripTime(t.tripEta))]);
+  if ((t.tripStops || []).length) {
+    rows.push(['Pemberhentian', '<ol class="stops">' +
+      t.tripStops.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ol>']);
+  }
+  return rows;
+}
+/* Manifest memberi "2026-09-16 18:30" (WIB). Tampilkan jamnya saja kalau
+ * tanggalnya sama dengan tanggal berangkat — selebihnya apa adanya. */
+function fmtTripTime(s) {
+  var m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/.exec(String(s || ''));
+  return m ? m[2] + ' WIB · ' + m[1] : s;
+}
+
 function shuttleCodes(t) {
   var out = [], a = t.shuttleCodePergi || '', b = t.shuttleCodePulang || '';
   if (a) out.push(a);
@@ -673,6 +694,8 @@ function detailHtml(t) {
     ].concat(shuttleCodes(t).length
       ? [['Kode Shuttle', shuttleLinksHtml(t)]]
       : (shuttleCodePending(t) ? [['Kode Shuttle', '<span class="muted">belum tersedia</span>']] : [])))) +
+
+    (tripRows(t).length ? section('Perjalanan', kv(tripRows(t))) : '') +
 
     section('Penumpang', (t.passengers || []).length
       ? '<div class="pax-grid">' + (t.passengers || []).map(function (p) { return paxHtml(p, t); }).join('') + '</div>'

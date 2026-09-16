@@ -231,6 +231,11 @@ a { color: var(--accent); }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; word-break: break-word; }
 .otp { font-family: ui-monospace, monospace; font-size: 18px; font-weight: 700; color: var(--accent); }
+/* Urutan pemberhentian dari manifest: daftar bernomor rapat, tanpa indentasi
+   bawaan <ol> supaya sejajar dengan nilai .kv lainnya. */
+.stops { margin: 0; padding-left: 1.1em; display: grid; gap: 2px; }
+.stops li { padding-left: 2px; }
+.stops li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
 .pax-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .pax { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; }
 .pax-grid .pax { margin-bottom: 0; }

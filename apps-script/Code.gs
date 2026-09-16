@@ -355,12 +355,32 @@ function scanManifests_(wanted) {
         var hull = String(r.hullCode || '').toUpperCase().trim();
         if (!wanted[hull]) return;                       // bukan armada kita -> buang
         var key = manifestKey_(hull, String(r.timeOfDeparture || '').replace(' ', 'T'));
-        if (key && r.manifestCode) found[key] = String(r.manifestCode);
+        if (key && r.manifestCode) found[key] = tripFromRow_(r);
       });
     }
   } catch (e) { Logger.log('scanManifests_ error: %s', e); }
   Logger.log('Manifest: %s halaman disisir, %s entri armada kita.', pages, Object.keys(found).length);
   return found;
+}
+
+/** Rangkum satu baris manifest jadi detail perjalanan. Nama field sengaja
+ *  pendek: cache ini tinggal di Script Properties yang batasnya 9 KB. */
+function tripFromRow_(r) {
+  return {
+    c: String(r.manifestCode || ''),
+    d: String(r.driverName || '').trim(),
+    p: String(r.numberPlate || '').trim(),
+    e: String(r.eta || '').trim(),
+    s: (r.outletList || []).map(function (o) { return String(o.nama || '').trim(); })
+        .filter(String).slice(0, 12)
+  };
+}
+
+/** Entri cache -> objek trip. Toleran pada cache versi lama yang isinya string
+ *  manifestCode saja, biar tak perlu sisir ulang sesudah update. */
+function tripOf_(v) {
+  if (!v) return null;
+  return typeof v === 'string' ? { c: v, d: '', p: '', e: '', s: [] } : v;
 }
 
 /** Isi t.trackUrl dari manifest. In-place, fail-safe (gagal = trackUrl kosong). */
@@ -369,7 +389,7 @@ function resolveTrackUrls_(tickets) {
   var cache = loadManifestCache_(), wanted = {}, keyed = [];
 
   tickets.forEach(function (t) {
-    t.trackUrl = '';
+    t.trackUrl = ''; t.driverName = ''; t.vehiclePlate = ''; t.tripEta = ''; t.tripStops = [];
     if (!t.shuttleCodePergi || !t.departISO || !isActive_(t)) return;
     var key = manifestKey_(t.shuttleCodePergi, t.departISO);
     if (!key) return;
@@ -399,9 +419,16 @@ function resolveTrackUrls_(tickets) {
 
   var filled = 0;
   keyed.forEach(function (k) {
-    var url = manifestUrl_(cache[k.key]);
-    if (url) { k.t.trackUrl = url; filled++; }
-    else Logger.log('Tracking: %s belum ada manifest-nya.', k.key);
+    var trip = tripOf_(cache[k.key]);
+    var url = trip ? manifestUrl_(trip.c) : '';
+    if (!url) { Logger.log('Tracking: %s belum ada manifest-nya.', k.key); return; }
+    k.t.trackUrl = url;
+    // Detail dari manifest: sopir, plat, estimasi tiba, urutan pemberhentian.
+    k.t.driverName = trip.d || '';
+    k.t.vehiclePlate = trip.p || '';
+    k.t.tripEta = trip.e || '';
+    k.t.tripStops = trip.s || [];
+    filled++;
   });
   Logger.log('Tracking: %s dari %s tiket aktif dapat link.', filled, keyed.length);
 }
