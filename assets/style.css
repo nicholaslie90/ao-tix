@@ -215,6 +215,17 @@ a { color: var(--accent); }
 .stops { margin: 0; padding-left: 1.1em; display: grid; gap: 2px; }
 .stops li { padding-left: 2px; }
 .stops li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Pemberhentian naik/turun milik tiket ini: dipertegas supaya langsung kelihatan
+   di mana kita masuk dan keluar dari rangkaian perhentian. */
+.stops li.stop-mine { color: var(--text); font-weight: 600; }
+.stops li.stop-mine::marker { color: var(--accent); }
+.stop-tag {
+  margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  border: 1px solid var(--border); color: var(--muted);
+}
+.stop-naik { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.stop-turun { color: var(--text); }
 .pax-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .pax { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; }
 .pax-grid .pax { margin-bottom: 0; }

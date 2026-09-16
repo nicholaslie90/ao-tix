@@ -488,11 +488,23 @@ function tripRows(t) {
   if (t.driverName) rows.push(['Sopir', esc(t.driverName)]);
   if (t.vehiclePlate) rows.push(['Nomor Plat', '<span class="kode">' + esc(t.vehiclePlate) + '</span>']);
   if (t.tripEta) rows.push(['Estimasi Tiba', esc(fmtTripTime(t.tripEta))]);
-  if ((t.tripStops || []).length) {
-    rows.push(['Pemberhentian', '<ol class="stops">' +
-      t.tripStops.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ol>']);
-  }
+  if (t.tripRef) rows.push(['Kode Perjalanan', '<span class="kode">' + esc(t.tripRef) + '</span>']);
+  if ((t.tripStops || []).length) rows.push(['Pemberhentian', stopsHtml(t)]);
   return rows;
+}
+
+/* Daftar pemberhentian, dengan pemberhentian NAIK dan TURUN milik tiket ini
+ * ditandai. Nama outlet di manifest sama persis dengan Point Keberangkatan /
+ * Point Tujuan di tiket; tetap dinormalkan supaya beda spasi tak meleset. */
+function normStop(s) { return String(s || '').toUpperCase().replace(/\s+/g, ' ').trim(); }
+function stopsHtml(t) {
+  var naik = normStop(t.departurePoint), turun = normStop(t.destinationPoint);
+  return '<ol class="stops">' + t.tripStops.map(function (n) {
+    var k = normStop(n), tag = '';
+    if (k && k === naik) tag = '<span class="stop-tag stop-naik">naik</span>';
+    else if (k && k === turun) tag = '<span class="stop-tag stop-turun">turun</span>';
+    return '<li' + (tag ? ' class="stop-mine"' : '') + '>' + esc(n) + tag + '</li>';
+  }).join('') + '</ol>';
 }
 /* Manifest memberi "2026-09-16 18:30" (WIB). Tampilkan jamnya saja kalau
  * tanggalnya sama dengan tanggal berangkat — selebihnya apa adanya. */

@@ -420,16 +420,22 @@ function tripFromRow_(r) {
     d: String(r.driverName || '').trim(),
     p: String(r.numberPlate || '').trim(),
     e: String(r.eta || '').trim(),
+    r: String(r.manifestReal || '').trim(),      // kode perjalanan, buat rujukan ke CS AO
     s: (r.outletList || []).map(function (o) { return String(o.nama || '').trim(); })
         .filter(String).slice(0, 12)
   };
+  // Sengaja TIDAK disimpan, sudah dicek di data nyata:
+  //   total_penumpang  -> 0 di semua 157 pemberhentian AO (operator lain mengisi)
+  //   completedOutlets -> kosong di semua 33 manifest AO (butuh GPS)
+  //   isBandara        -> selalu false untuk AO
+  //   lat/lon tiap outlet -> tiket sudah punya link Maps asal & tujuan
 }
 
 /** Entri cache -> objek trip. Toleran pada cache versi lama yang isinya string
  *  manifestCode saja, biar tak perlu sisir ulang sesudah update. */
 function tripOf_(v) {
   if (!v) return null;
-  return typeof v === 'string' ? { c: v, d: '', p: '', e: '', s: [] } : v;
+  return typeof v === 'string' ? { c: v, d: '', p: '', e: '', r: '', s: [] } : v;
 }
 
 /** Isi t.trackUrl dari manifest. In-place, fail-safe (gagal = trackUrl kosong). */
@@ -438,7 +444,8 @@ function resolveTrackUrls_(tickets) {
   var cache = loadManifestCache_(), wanted = {}, keyed = [];
 
   tickets.forEach(function (t) {
-    t.trackUrl = ''; t.driverName = ''; t.vehiclePlate = ''; t.tripEta = ''; t.tripStops = [];
+    t.trackUrl = ''; t.driverName = ''; t.vehiclePlate = '';
+    t.tripEta = ''; t.tripRef = ''; t.tripStops = [];
     if (!t.shuttleCodePergi || !t.departISO || !isActive_(t)) return;
     var key = manifestKey_(t.shuttleCodePergi, t.departISO);
     if (!key) return;
@@ -476,6 +483,7 @@ function resolveTrackUrls_(tickets) {
     k.t.driverName = trip.d || '';
     k.t.vehiclePlate = trip.p || '';
     k.t.tripEta = trip.e || '';
+    k.t.tripRef = trip.r || '';
     k.t.tripStops = trip.s || [];
     filled++;
   });
