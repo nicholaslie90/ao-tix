@@ -366,15 +366,22 @@ function resolveTrackUrls_(tickets) {
     if (!t.shuttleCodePergi || !t.departISO) return;
     var dep = Date.parse(t.departISO);
     if (isNaN(dep) || dep < now - ACTIVE_BEFORE_MS || dep > now + TRACK_AHEAD_MS) return;
-    var id = OUTLET_IDS[normOutlet_(t.departurePoint)];
-    if (!id) { Logger.log('Outlet tak dikenal di OUTLET_IDS: %s', t.departurePoint); return; }
-    if (!byOutlet[id]) byOutlet[id] = fetchArmada_(id);
-    var url = matchArmada_(byOutlet[id], t.shuttleCodePergi);
+    // getTracking/<outlet> = armada yang sedang MENUJU outlet itu. Sebelum
+    // berangkat bus menuju outlet asal (menjemput kita); sesudah berangkat ia
+    // menuju outlet tujuan. Jadi cek keduanya, kalau tidak tiket yang sudah
+    // jalan tak akan pernah cocok.
+    var names = [t.departurePoint, t.destinationPoint], tried = [], url = '';
+    for (var i = 0; i < names.length && !url; i++) {
+      var id = OUTLET_IDS[normOutlet_(names[i])];
+      if (!id) { Logger.log('Outlet tak dikenal di OUTLET_IDS: %s', names[i]); continue; }
+      if (!byOutlet[id]) byOutlet[id] = fetchArmada_(id);
+      tried.push(names[i] + ': ' + (armadaCodes_(byOutlet[id]) || '(tak ada)'));
+      url = matchArmada_(byOutlet[id], t.shuttleCodePergi);
+    }
     if (url) { t.trackUrl = url; filled++; return; }
-    // Bedakan "belum ada bus menuju outlet" (normal, bus baru muncul beberapa
-    // menit sebelum tiba) dari "ada bus tapi kodenya tak cocok" (itu bug).
-    Logger.log('Tracking: %s belum terlacak di %s — armada di sana: %s',
-      t.shuttleCodePergi, t.departurePoint, armadaCodes_(byOutlet[id]) || '(tak ada)');
+    // Bedakan "belum ada bus menuju outlet" (normal) dari "ada bus tapi
+    // kodenya tak cocok" (itu bug).
+    Logger.log('Tracking: %s belum terlacak — %s', t.shuttleCodePergi, tried.join(' | ') || '(outlet tak dikenal)');
   });
   Logger.log('Tracking: %s tiket dapat link dari %s outlet.', filled, Object.keys(byOutlet).length);
 }
