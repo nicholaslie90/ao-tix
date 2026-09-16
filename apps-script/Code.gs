@@ -370,9 +370,18 @@ function resolveTrackUrls_(tickets) {
     if (!id) { Logger.log('Outlet tak dikenal di OUTLET_IDS: %s', t.departurePoint); return; }
     if (!byOutlet[id]) byOutlet[id] = fetchArmada_(id);
     var url = matchArmada_(byOutlet[id], t.shuttleCodePergi);
-    if (url) { t.trackUrl = url; filled++; }
+    if (url) { t.trackUrl = url; filled++; return; }
+    // Bedakan "belum ada bus menuju outlet" (normal, bus baru muncul beberapa
+    // menit sebelum tiba) dari "ada bus tapi kodenya tak cocok" (itu bug).
+    Logger.log('Tracking: %s belum terlacak di %s — armada di sana: %s',
+      t.shuttleCodePergi, t.departurePoint, armadaCodes_(byOutlet[id]) || '(tak ada)');
   });
   Logger.log('Tracking: %s tiket dapat link dari %s outlet.', filled, Object.keys(byOutlet).length);
+}
+
+/** Ringkasan kode armada untuk log. */
+function armadaCodes_(armada) {
+  return armada.map(function (a) { return a.kode_armada + ' (eta ' + a.eta + 'm)'; }).join(', ');
 }
 
 /** Daftar armada yang sedang menuju satu outlet. Array (kosong bila gagal). */
