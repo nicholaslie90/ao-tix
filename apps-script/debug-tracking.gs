@@ -69,9 +69,16 @@ function debugReservasiList() {
   Logger.log('PUNYA kode_kendaraan: %s dari %s reservasi; di antaranya url_tracking terisi: %s',
     berkode.length, arr.length, berlink.length);
 
+  // nomor_plat itu data booking kita sendiri. Kalau terisi, plat bisa dicari
+  // langsung di indeks manifest aktif (satu request kecil), tanpa menyisir
+  // daftar manifest operator lain.
+  var berplat = berkode.filter(function (r) { return String(r.nomor_plat || '').trim(); });
+  Logger.log('PUNYA nomor_plat: %s dari %s yang berkode.', berplat.length, berkode.length);
+
   berkode.slice(0, 10).forEach(function (r) {
-    Logger.log('  %s  %s %s  kode=%s  url_tracking=%s',
-      r.kode_booking, r.tgl_berangkat, r.jam_berangkat,
-      r.kode_kendaraan, String(r.url_tracking || '') || '(kosong)');
+    Logger.log('  %s  %s %s  kode=%s  plat=%s  url_tracking=%s',
+      r.kode_booking, r.tgl_berangkat, r.jam_berangkat, r.kode_kendaraan,
+      String(r.nomor_plat || '') || '(kosong)',
+      String(r.url_tracking || '') || '(kosong)');
   });
 }
