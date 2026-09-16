@@ -18,6 +18,11 @@
  *
  * Lalu: jalankan `setup()` sekali (authorize), pasang trigger time-driven
  * tiap 30 menit ke fungsi `syncTickets`.
+ *
+ * Trigger kedua (opsional tapi disarankan): tiap 10-15 menit ke
+ * `refreshTracking`. Link lacak posisi hanya muncul selagi bus menuju outlet
+ * keberangkatan, jadi trigger per jam sering meleset. `refreshTracking` keluar
+ * tanpa kerja apa pun di luar jendela keberangkatan, jadi murah.
  */
 
 var SEARCH_QUERY =
@@ -50,6 +55,9 @@ function syncTickets() {
   tickets = keepTodayAndFuture_(tickets);   // buang tiket yang harinya sudah lewat (WIB)
   enrichShuttleCodes_(tickets);   // isi kode shuttle (no-op bila token belum di-set)
   embedBarcodes_(tickets);        // simpan QR sebagai data URI utk tiket aktif (offline)
+  resolveTrackUrls_(tickets);     // isi link lacak posisi (kosong bila belum jalan)
+
+  props.setProperty('NEXT_DEPART_MS', String(nextDepartMs_(tickets)));  // dipakai refreshTracking
 
   // Hash HANYA atas data tiket (tanpa generatedAt yang selalu berubah),
   // supaya tak ada commit sampah tiap run saat data tiket tidak berubah.
@@ -281,6 +289,147 @@ function randomWordArray_(nBytes) {
 function sha256Hex_(str) {
   var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, str, Utilities.Charset.UTF_8);
   return bytes.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+/* ------------------------ Live tracking (bus terdekat) ------------------- */
+/*
+ * eta.transtrack.id/aoshuttle/map/<kode> sudah mati (HTTP 500). Penggantinya
+ * adalah endpoint yang dipakai halaman publik aotransportbus.com/bus-terdekat:
+ *
+ *   GET https://web.aotransportbus.com/getTracking/<outletId>
+ *     -> { data: { armada: [{ kode_armada, no_plate, eta, tujuan_akhir, link_map }] } }
+ *
+ * link_map = live.tracking.asmat.app/map/AO/<manifestCode>, bisa di-iframe.
+ * Dua sifat penting:
+ *   - manifestCode itu PER-PERJALANAN (dibuat ~H-1, terikat jam berangkat),
+ *     bukan per-kendaraan -> jangan pernah di-cache antar trip.
+ *   - armada hanya muncul selagi menuju outlet itu -> resolve dekat berangkat.
+ * Endpoint ini CORS-nya dikunci ke aotransportbus.com, jadi harus dari sini
+ * (server-side), bukan dari browser. Fail-safe: gagal = trackUrl kosong dan
+ * web jatuh ke halaman Bus Terdekat resmi.
+ */
+var TRACKING_URL = 'https://web.aotransportbus.com/getTracking/';
+// link_map berakhir di href + iframe src di web; kunci ke host peta yang
+// diharapkan supaya skema jahat (javascript:, data:) atau host lain tak lolos.
+var TRACK_MAP_PREFIX = 'https://live.tracking.asmat.app/map/';
+var TRACK_AHEAD_MS = 2 * 3600 * 1000;   // resolve hanya tiket <= 2 jam lagi
+
+// Nama outlet (= "Point Keberangkatan" di tiket) -> id outlet, dari poolData
+// halaman web.aotransportbus.com/tracking.
+var OUTLET_IDS = {
+  'AEON MALL BSD CITY':                                    92,
+  'AEON MALL DELTAMAS':                                    82,
+  'AEON MALL SENTUL CITY':                                 111,
+  'ALUN ALUN KARAWANG':                                    145,
+  'BLOK M (JL. PALATEHAN II)':                             13,
+  'CIBUBUR JUNCTION':                                      123,
+  'CITYWALK LIPPO CIKARANG':                               22,
+  'CXC LIPPO KARAWANG':                                    142,
+  'GAMBIR EXPO KEMAYORAN':                                 105,
+  'GATE CENDANA CREST':                                    152,
+  'HALTE CITY TOUR MONAS':                                 36,
+  'HALTE KARET':                                           104,
+  'HALTE MEIKARTA D1':                                     21,
+  'HALTE PASAR MODERN DELTAMAS':                           70,
+  'HALTE SARINAH':                                         101,
+  'HALTE SEMANGGI':                                        33,
+  'HOLLYWOOD JUNCTION JABABEKA':                           61,
+  'LIPPO VILLAGE MAXX BOX':                                99,
+  'LRT CITY BEKASI':                                       77,
+  'MARGO CITY MALL':                                       108,
+  'MEGA BEKASI HYPERMALL':                                 116,
+  'MRT BLOK M BCA':                                        140,
+  'MRT ISTORA MANDIRI [HALTE GELORA BUNG KARNO 2]':        131,
+  'MRT ISTORA MANDIRI [HALTE POLDA METRO JAYA]':           128,
+  'MRT SENAYAN MASTERCARD [HALTE BUNDARAN SENAYAN 2]':     137,
+  'MRT SENAYAN MASTERCARD [HALTE BUNDARAN SENAYAN]':       134,
+  'NICE PIK 2':                                            120,
+  'PARK SERPONG':                                          96,
+  'RUKO HIVE CREST':                                       149,
+  'RUKO HIVE PARK EAST':                                   155,
+  'SEKOLAH LENTERA':                                       146,
+  'SEMANGGI':                                              19,
+  'SENAYAN PARK':                                          87,
+  'SUMMARECON MALL SERPONG':                               126,
+  'TERMINAL BSD':                                          65,
+  'THE GRAND OUTLET - EAST JAKARTA, KARAWANG':             73,
+};
+
+function normOutlet_(s) { return String(s || '').toUpperCase().replace(/\s+/g, ' ').trim(); }
+
+/** Isi t.trackUrl untuk tiket yang sebentar lagi / sedang berangkat. In-place.
+ *  Selalu resolve ulang (URL per-perjalanan), satu fetch per outlet per run. */
+function resolveTrackUrls_(tickets) {
+  var now = Date.now(), byOutlet = {}, filled = 0;
+  tickets.forEach(function (t) {
+    t.trackUrl = '';
+    if (!t.shuttleCodePergi || !t.departISO) return;
+    var dep = Date.parse(t.departISO);
+    if (isNaN(dep) || dep < now - ACTIVE_BEFORE_MS || dep > now + TRACK_AHEAD_MS) return;
+    var id = OUTLET_IDS[normOutlet_(t.departurePoint)];
+    if (!id) { Logger.log('Outlet tak dikenal di OUTLET_IDS: %s', t.departurePoint); return; }
+    if (!byOutlet[id]) byOutlet[id] = fetchArmada_(id);
+    var url = matchArmada_(byOutlet[id], t.shuttleCodePergi);
+    if (url) { t.trackUrl = url; filled++; }
+  });
+  Logger.log('Tracking: %s tiket dapat link dari %s outlet.', filled, Object.keys(byOutlet).length);
+}
+
+/** Daftar armada yang sedang menuju satu outlet. Array (kosong bila gagal). */
+function fetchArmada_(outletId) {
+  try {
+    var res = UrlFetchApp.fetch(TRACKING_URL + outletId, { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) {
+      Logger.log('getTracking/%s HTTP %s', outletId, res.getResponseCode());
+      return [];
+    }
+    return ((JSON.parse(res.getContentText()) || {}).data || {}).armada || [];
+  } catch (e) {
+    Logger.log('getTracking/%s error: %s', outletId, e);
+    return [];
+  }
+}
+
+/** link_map armada dengan kode_armada == kode. '' bila tak ada / tak tepercaya.
+ *  link_map datang sebagai http:// -> paksa https, kalau tidak iframe-nya
+ *  diblokir sebagai mixed content di situs https. */
+function matchArmada_(armada, kode) {
+  var want = String(kode).toUpperCase().trim();
+  for (var i = 0; i < armada.length; i++) {
+    if (String(armada[i].kode_armada || '').toUpperCase().trim() !== want) continue;
+    var url = String(armada[i].link_map || '').trim().replace(/^http:\/\//i, 'https://');
+    return url.indexOf(TRACK_MAP_PREFIX) === 0 ? url : '';
+  }
+  return '';
+}
+
+/** Keberangkatan terdekat yang belum lewat (ms epoch), 0 bila tak ada. */
+function nextDepartMs_(tickets) {
+  var now = Date.now(), best = 0;
+  tickets.forEach(function (t) {
+    var dep = Date.parse(t.departISO || '');
+    if (isNaN(dep) || dep < now - ACTIVE_BEFORE_MS) return;
+    if (!best || dep < best) best = dep;
+  });
+  return best;
+}
+
+/**
+ * Entry point untuk trigger rapat (tiap 10-15 menit).
+ * Link tracking baru muncul selagi bus menuju outlet, jadi trigger per jam
+ * sering meleset. Supaya tetap hemat kuota Gmail, fungsi ini keluar tanpa
+ * kerja apa pun kecuali memang ada keberangkatan dalam jendela tracking —
+ * pakai NEXT_DEPART_MS yang dicatat syncTickets pada run sebelumnya.
+ */
+function refreshTracking() {
+  var props = PropertiesService.getScriptProperties();
+  var next = Number(props.getProperty('NEXT_DEPART_MS') || 0);
+  var now = Date.now();
+  if (!next || now < next - TRACK_AHEAD_MS || now > next + ACTIVE_BEFORE_MS) {
+    Logger.log('refreshTracking dilewati: di luar jendela keberangkatan.');
+    return;
+  }
+  syncTickets();
 }
 
 /* --------------------------- AO Shuttle API ---------------------------- */

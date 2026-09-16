@@ -374,15 +374,23 @@ function shuttleCodes(t) {
   return out;
 }
 function shuttleText(t) { return shuttleCodes(t).join(' / '); }
-function shuttleAnchors(codes) {
-  return codes.map(function (c) {
-    return '<a class="kode" data-map="' + esc(c) +
-      '" href="https://eta.transtrack.id/aoshuttle/map/' +
-      encodeURIComponent(c) + '" title="Lacak posisi shuttle">' +
-      esc(c) + '</a>';
+/* Link lacak posisi. eta.transtrack.id yang lama sudah mati (HTTP 500).
+ * Penggantinya: t.trackUrl, di-resolve backend (Code.gs) lewat endpoint
+ * /getTracking milik halaman Bus Terdekat. URL itu per-perjalanan dan hanya
+ * ada menjelang/selama trip, jadi tanpa itu kita jatuh ke halaman Bus Terdekat
+ * resmi — user pilih outlet keberangkatannya sendiri di sana. */
+var BUS_TERDEKAT_URL = 'https://aotransportbus.com/bus-terdekat';
+function shuttleAnchors(codes, trackUrl) {
+  return codes.map(function (c, i) {
+    var live = !!trackUrl && i === 0;           // trackUrl selalu untuk kode leg pergi
+    return '<a class="kode"' +
+      (live ? ' data-map="' + esc(c) + '"' : ' target="_blank" rel="noopener"') +
+      ' href="' + esc(live ? trackUrl : BUS_TERDEKAT_URL) + '" title="' +
+      (live ? 'Lacak posisi shuttle' : 'Buka Bus Terdekat (pilih outlet keberangkatan)') +
+      '">' + esc(c) + '</a>';
   }).join(' · ');
 }
-function shuttleLinksHtml(t) { return shuttleAnchors(shuttleCodes(t)); }
+function shuttleLinksHtml(t) { return shuttleAnchors(shuttleCodes(t), t.trackUrl); }
 /* Trip akan datang / baru saja berangkat: kode shuttle memang diisi menjelang
  * berangkat, jadi tampilkan "belum tersedia" alih-alih menyembunyikan barisnya. */
 function shuttleCodePending(t) {
@@ -465,7 +473,7 @@ function renderLightbox() {
   });
   // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
   var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
-    (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(',')) + '</span>' : '') +
+    (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(','), item.track) + '</span>' : '') +
     (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
     (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '');
   lightboxCap.innerHTML = capHtml;
@@ -542,7 +550,8 @@ function openLightboxFromModal(index) {
       name: el.getAttribute('data-name'),
       seat: el.getAttribute('data-seat'),
       when: el.getAttribute('data-when'),
-      shuttle: el.getAttribute('data-shuttle')
+      shuttle: el.getAttribute('data-shuttle'),
+      track: el.getAttribute('data-track')
     };
   });
   openLightbox(index);
@@ -684,7 +693,8 @@ function paxHtml(p, t) {
   if (p.barcodeData || p.barcodeUrl) {
     img = '<img class="pax-qr" src="' + esc(p.barcodeData || p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
       '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') +
-      '" data-when="' + esc(when) + '" data-shuttle="' + esc(shuttleCodes(t).join(',')) + '" />' +
+      '" data-when="' + esc(when) + '" data-shuttle="' + esc(shuttleCodes(t).join(',')) +
+      '" data-track="' + esc(t.trackUrl || '') + '" />' +
       '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';
   }
   return '<div class="pax">' +
