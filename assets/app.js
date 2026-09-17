@@ -529,19 +529,15 @@ function shuttleText(t) { return shuttleCodes(t).join(' / '); }
 /* Link lacak posisi. eta.transtrack.id yang lama sudah mati (HTTP 500).
  * Penggantinya: t.trackUrl, di-resolve backend (Code.gs) lewat endpoint
  * /getTracking milik halaman Bus Terdekat. URL itu per-perjalanan dan hanya
- * ada menjelang/selama trip, jadi tanpa itu kita jatuh ke halaman Bus Terdekat
- * resmi — user pilih outlet keberangkatannya sendiri di sana. */
-var BUS_TERDEKAT_URL = 'https://aotransportbus.com/bus-terdekat';
-/* Selalu tab baru, tidak pernah iframe. Peta asmat itu SPA yang bergantung pada
+ * ada menjelang/selama trip; tanpa itu kodenya tampil polos tanpa link.
+ * Selalu tab baru, tidak pernah iframe. Peta asmat itu SPA yang bergantung pada
  * storage; di iframe lintas-origin storage-nya dipartisi (dan Brave memblokirnya
  * sama sekali), sehingga isinya kosong/putih. Di tab sendiri ia jalan normal. */
 function shuttleAnchors(codes, trackUrl) {
   return codes.map(function (c, i) {
-    var live = !!trackUrl && i === 0;           // trackUrl selalu untuk kode leg pergi
-    return '<a class="kode" target="_blank" rel="noopener"' +
-      ' href="' + esc(live ? trackUrl : BUS_TERDEKAT_URL) + '" title="' +
-      (live ? 'Lacak posisi shuttle (tab baru)' : 'Buka Bus Terdekat (pilih outlet keberangkatan)') +
-      '">' + esc(c) + '</a>';
+    if (!trackUrl || i !== 0) return '<span class="kode">' + esc(c) + '</span>';   // trackUrl selalu untuk kode leg pergi
+    return '<a class="kode" target="_blank" rel="noopener" href="' + esc(trackUrl) +
+      '" title="Lacak posisi shuttle (tab baru)">' + esc(c) + '</a>';
   }).join(' · ');
 }
 function shuttleLinksHtml(t) { return shuttleAnchors(shuttleCodes(t), t.trackUrl); }
