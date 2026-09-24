@@ -265,6 +265,7 @@ table.prices td.num { text-align: right; }
 .lightbox-card-cap .lb-cap-seat { display: block; margin-top: 4px; font-size: 18px; font-weight: 700; }
 .lightbox-card-cap .lb-cap-when { display: block; margin-top: 4px; font-size: 14px; color: #555; }
 .lightbox-card-cap .lb-cap-shuttle { display: block; margin-top: 8px; font-size: 15px; font-weight: 700; }
+.lightbox-card-cap .lb-cap-shuttle .kode { color: inherit; }
 .lightbox-card-cap .lb-cap-shuttle a.kode { color: oklch(45% 0.1 172); text-decoration: underline; }
 /* Di bawah kartu (bukan menumpuk di sudut) supaya tak terhalang kartu/tombol lain. */
 .lightbox-zoom {
