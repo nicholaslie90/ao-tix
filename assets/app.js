@@ -410,7 +410,9 @@ function render() {
   var todayWIB = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
   var upcoming = [];
 
-  var missing = annotateMissing(tickets, detectHome(tickets));
+  // Fase cepat cuma berisi satu tiket -> pasangannya pasti "kurang". Tunda cek
+  // sampai data penuh tiba (home null = semua _missing dikosongkan).
+  var missing = annotateMissing(tickets, fullLoaded ? detectHome(tickets) : null);
 
   tickets.forEach(function (t) {
     var day = dateKey(t);
