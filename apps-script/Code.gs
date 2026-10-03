@@ -144,7 +144,12 @@ function collectTickets_() {
       var msg = msgs[j];
       try {
         var t = parseTicket_(msg.getBody(), msg.getDate());
-        if (t && t.bookingCode) byCode[t.bookingCode] = t; // dedupe
+        // Dedupe: email terbaru menang (reschedule memakai kode booking yang sama;
+        // search mengembalikan thread terbaru dulu, jadi jangan asal timpa).
+        if (t && t.bookingCode) {
+          var prev = byCode[t.bookingCode];
+          if (!prev || t.messageDate > prev.messageDate) byCode[t.bookingCode] = t;
+        }
       } catch (e) {
         Logger.log('Gagal parse message: %s', e);
       }
