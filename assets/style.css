@@ -234,7 +234,9 @@ a { color: var(--accent); }
   display: block; width: 100%; max-width: 100%; margin-top: 10px;
   background: #fff; padding: 8px; border-radius: 8px; cursor: zoom-in;
   image-rendering: pixelated; /* barcode/QR tetap tajam saat diperbesar */
+  transition: transform .15s var(--ease-out);
 }
+.pax img:active { transform: scale(.97); }
 [data-theme="dark"] .pax img { border: 1px solid var(--border); }
 .pax .zoom-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 table.prices { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -245,7 +247,9 @@ table.prices td.num { text-align: right; }
 /* ----- Lightbox QR ----- */
 .lightbox { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; }
 .lightbox-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.85); animation: fadeIn .15s ease-out; }
-.lightbox-fig { position: relative; margin: 0; text-align: center; }
+.lightbox-fig { position: relative; margin: 0; text-align: center; animation: qrIn .28s var(--ease-out); }
+/* Animasi di figure, bukan kartu: transform kartu dipegang JS swipe. */
+@keyframes qrIn { from { opacity: 0; transform: translateY(12px) scale(.94); } }
 .lightbox-card {
   background: #fff; border-radius: 20px; padding: 18px;
   width: min(82vw, 360px); max-width: 92vw;
@@ -299,7 +303,8 @@ table.prices td.num { text-align: right; }
 
 /* Kurangi gerak: semua animasi jadi instan/di tempat. */
 @media (prefers-reduced-motion: reduce) {
-  .spin, .modal-card, .modal-backdrop, .lightbox-backdrop { animation: none; }
+  .spin, .modal-card, .modal-backdrop, .lightbox-backdrop, .lightbox-fig { animation: none; }
+  .pax img:active { transform: none; }
   .lightbox-card, .lightbox-card-qr { transition: none !important; }
   .card:hover, .card:active { transform: none; }
 }
