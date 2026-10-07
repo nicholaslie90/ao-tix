@@ -295,7 +295,7 @@ function autoOpen(t) {
  * berubah — jadi link peta muncul tanpa perlu refresh. Tidak mengganggu kalau user
  * sudah menutup lightbox atau membuka kartu lain. */
 function maybeAdvanceAuto() {
-  if (lightbox.hidden || openTicketIdx !== autoIdx) return;
+  if (!isOpen(lightbox) || openTicketIdx !== autoIdx) return;
   var t = ticketToAutoOpen();
   if (t && autoSig(t) !== autoKey) autoOpen(t);
 }
@@ -574,15 +574,33 @@ function bindCards() {
   }
 }
 
+/* ===== Buka/tutup popup beranimasi =====
+ * Tutup: pasang .closing (animasi keluar di CSS), baru hidden setelah selesai.
+ * Selama .closing popup dianggap sudah tertutup (lihat isOpen). */
+var POP_OUT_MS = 180;   // samakan dengan durasi popOut/fadeOut di CSS
+function isOpen(el) { return !el.hidden && !el.classList.contains('closing'); }
+function showPop(el) {
+  clearTimeout(el._popT);
+  el.classList.remove('closing');
+  el.hidden = false;
+}
+function hidePop(el, done) {
+  if (!isOpen(el)) return;
+  function fin() { el.classList.remove('closing'); el.hidden = true; if (done) done(); }
+  if (lbReduce()) { fin(); return; }
+  el.classList.add('closing');
+  el._popT = setTimeout(fin, POP_OUT_MS);
+}
+
 /* ===== Modal detail ===== */
 var openTicketIdx = -1;   // index tiket yang sedang ditampilkan di modal
 function openModal(t) {
   if (!t) return;
   openTicketIdx = tickets.indexOf(t);
   modalBody.innerHTML = detailHtml(t);
-  modal.hidden = false;
+  showPop(modal);
 }
-function closeModal() { modal.hidden = true; modalBody.innerHTML = ''; }
+function closeModal() { hidePop(modal, function () { modalBody.innerHTML = ''; }); }
 
 modal.addEventListener('click', function (e) {
   if (e.target.hasAttribute('data-close')) closeModal();
@@ -641,9 +659,12 @@ function openLightbox(index) {
   lbSetTransform(0, 0, 'none');   // mulai dari tengah, tanpa sisa animasi
   lbAnimating = false;
   lbApplyQrSize();
-  lightbox.hidden = false;
+  showPop(lightbox);
 }
-function closeLightbox() { lightbox.hidden = true; lightboxImg.src = ''; lbItems = []; }
+function closeLightbox() {
+  lbItems = [];
+  hidePop(lightbox, function () { lightboxImg.src = ''; });
+}
 
 /* ---- Animasi swipe ala kartu ---- */
 var lbAnimating = false;
@@ -755,13 +776,13 @@ lightboxCard.addEventListener('pointerup', lbEndDrag);
 lightboxCard.addEventListener('pointercancel', lbEndDrag);
 
 document.addEventListener('keydown', function (e) {
-  if (!lightbox.hidden) {
+  if (isOpen(lightbox)) {
     if (e.key === 'Escape') closeLightbox();
     else if (e.key === 'ArrowLeft') lbCommit(-1);
     else if (e.key === 'ArrowRight') lbCommit(1);
     return;
   }
-  if (e.key === 'Escape' && !modal.hidden) closeModal();
+  if (e.key === 'Escape' && isOpen(modal)) closeModal();
 });
 
 function detailHtml(t) {
