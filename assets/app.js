@@ -645,7 +645,8 @@ function renderLightbox() {
   var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
     (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(','), item.track) + '</span>' : '') +
     (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
-    (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '');
+    (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '') +
+    (item.fast ? '<span class="lb-cap-fast">⚡ Sopir Umar — shuttle bisa tiba lebih cepat dari perkiraan</span>' : '');
   lightboxCap.innerHTML = capHtml;
   lightboxCap.hidden = !capHtml;
   var multi = lbItems.length > 1;
@@ -724,7 +725,8 @@ function openLightboxFromModal(index) {
       seat: el.getAttribute('data-seat'),
       when: el.getAttribute('data-when'),
       shuttle: el.getAttribute('data-shuttle'),
-      track: el.getAttribute('data-track')
+      track: el.getAttribute('data-track'),
+      fast: el.getAttribute('data-fast') === '1'
     };
   });
   openLightbox(index);
@@ -832,6 +834,9 @@ function detailHtml(t) {
     ]));
 }
 
+// Sopir yang biasanya tiba lebih awal dari jadwal → diberi penanda di lightbox QR.
+var FAST_DRIVERS = /^\s*umar maulana wibowo\s*$/i;
+
 function paxHtml(p, t) {
   t = t || {};
   var when = (t.departDate || '') + (t.departTime ? ' · ' + t.departTime : '');
@@ -840,7 +845,7 @@ function paxHtml(p, t) {
     img = '<img class="pax-qr" src="' + esc(p.barcodeData || p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
       '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') +
       '" data-when="' + esc(when) + '" data-shuttle="' + esc(shuttleCodes(t).join(',')) +
-      '" data-track="' + esc(t.trackUrl || '') + '" />' +
+      '" data-track="' + esc(t.trackUrl || '') + '" data-fast="' + (FAST_DRIVERS.test(t.driverName || '') ? '1' : '') + '" />' +
       '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';
   }
   return '<div class="pax">' +
