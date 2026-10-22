@@ -273,6 +273,7 @@ table.prices td.num { text-align: right; }
 .lightbox-card-cap { color: #111; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid #eee; }
 .lightbox-card-cap[hidden] { display: none; }
 .lightbox-card-cap .lb-cap-name { display: block; font-weight: 600; font-size: 16px; }
+.lightbox-card-cap .lb-cap-ticket { display: block; margin-top: 4px; font-size: 14px; }
 .lightbox-card-cap .lb-cap-seat { display: block; margin-top: 4px; font-size: 18px; font-weight: 700; }
 .lightbox-card-cap .lb-cap-when { display: block; margin-top: 4px; font-size: 14px; color: #555; }
 .lightbox-card-cap .lb-cap-fast { display: block; margin-top: 8px; padding: 6px 10px; border-radius: 8px; background: oklch(95% 0.06 90); color: oklch(40% 0.1 70); font-size: 13px; font-weight: 600; }

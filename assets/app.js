@@ -644,6 +644,7 @@ function renderLightbox() {
   // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
   var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
     (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(','), item.track) + '</span>' : '') +
+    (item.ticket ? '<span class="lb-cap-ticket">No. Tiket <span class="kode">' + esc(item.ticket) + '</span></span>' : '') +
     (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
     (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '') +
     (item.fast ? '<span class="lb-cap-fast">⚡ Sopir Umar — shuttle bisa tiba lebih cepat dari perkiraan</span>' : '');
@@ -723,6 +724,7 @@ function openLightboxFromModal(index) {
       src: el.getAttribute('src'),
       name: el.getAttribute('data-name'),
       seat: el.getAttribute('data-seat'),
+      ticket: el.getAttribute('data-ticket'),
       when: el.getAttribute('data-when'),
       shuttle: el.getAttribute('data-shuttle'),
       track: el.getAttribute('data-track'),
@@ -840,10 +842,13 @@ var FAST_DRIVERS = /^\s*umar maulana wibowo\s*$/i;
 function paxHtml(p, t) {
   t = t || {};
   var when = (t.departDate || '') + (t.departTime ? ' · ' + t.departTime : '');
+  // No. tiket hanya ada di priceRows; cocokkan per kursi (+rute bila ada beberapa).
+  var rows = (t.priceRows || []).filter(function (r) { return r.seat === p.seat; });
+  var pr = rows.filter(function (r) { return r.route === p.route; })[0] || rows[0];
   var img = '';
   if (p.barcodeData || p.barcodeUrl) {
     img = '<img class="pax-qr" src="' + esc(p.barcodeData || p.barcodeUrl) + '" alt="Boarding ' + esc(p.name) +
-      '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') +
+      '" loading="lazy" data-name="' + esc(p.name || '') + '" data-seat="' + esc(p.seat || '') + '" data-ticket="' + esc(pr ? pr.ticketNo : '') +
       '" data-when="' + esc(when) + '" data-shuttle="' + esc(shuttleCodes(t).join(',')) +
       '" data-track="' + esc(t.trackUrl || '') + '" data-fast="' + (FAST_DRIVERS.test(t.driverName || '') ? '1' : '') + '" />' +
       '<div class="zoom-hint">Ketuk untuk perbesar &amp; scan</div>';
