@@ -644,7 +644,7 @@ function renderLightbox() {
   // Nama di atas, lalu nomor kursi, lalu tanggal & jam keberangkatan di bawahnya.
   var capHtml = (item.name ? '<span class="lb-cap-name">' + esc(item.name) + '</span>' : '') +
     (item.shuttle ? '<span class="lb-cap-shuttle">' + shuttleAnchors(item.shuttle.split(','), item.track) + '</span>' : '') +
-    (item.ticket ? '<span class="lb-cap-ticket">No. Tiket <span class="kode">' + esc(item.ticket) + '</span></span>' : '') +
+    (item.ticket ? '<span class="lb-cap-ticket">No. Tiket ' + esc(item.ticket) + '</span>' : '') +
     (item.seat ? '<span class="lb-cap-seat">Kursi ' + esc(item.seat) + '</span>' : '') +
     (item.when ? '<span class="lb-cap-when">' + esc(item.when) + '</span>' : '') +
     (item.fast ? '<span class="lb-cap-fast">⚡ Sopir Umar — shuttle bisa tiba lebih cepat dari perkiraan</span>' : '');
