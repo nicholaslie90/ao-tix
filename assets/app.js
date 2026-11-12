@@ -455,6 +455,7 @@ function cardHtml(t, hideDate) {
     ? timePart
     : (esc((t.departDate || '').replace(/\s*$/, '')) + (timePart ? ' · ' + timePart : ''));
   var pax = (t.passengers || []).length;
+  var seats = (t.passengers || []).map(function (p) { return p.seat; }).filter(Boolean).join(', ');
   return '' +
     '<article class="card' + (t._missing ? ' has-warn' : '') + '" data-idx="' + idx + '" data-date="' + esc(dateKey(t)) + '">' +
       '<div class="card-head">' +
@@ -467,7 +468,7 @@ function cardHtml(t, hideDate) {
       '<div class="card-meta">' +
         '<span class="kode">' + esc(t.bookingCode || '') + '</span>' +
         (shuttleText(t) ? '<span class="shuttle">🚐 ' + esc(shuttleText(t)) + '</span>' : '') +
-        '<span>' + pax + ' penumpang</span>' +
+        '<span>' + pax + ' penumpang' + (seats ? ' · Kursi ' + esc(seats) : '') + '</span>' +
       '</div>' +
     '</article>';
 }
