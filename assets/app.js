@@ -584,13 +584,19 @@ function showPop(el) {
   clearTimeout(el._popT);
   el.classList.remove('closing');
   el.hidden = false;
+  syncBright();
 }
 function hidePop(el, done) {
   if (!isOpen(el)) return;
   function fin() { el.classList.remove('closing'); el.hidden = true; if (done) done(); }
-  if (lbReduce()) { fin(); return; }
-  el.classList.add('closing');
-  el._popT = setTimeout(fin, POP_OUT_MS);
+  if (lbReduce()) fin();
+  else { el.classList.add('closing'); el._popT = setTimeout(fin, POP_OUT_MS); }
+  syncBright();
+}
+// App Android: layar terang maksimal selama QR terlihat (lightbox, atau modal detail yang berisi QR).
+function syncBright() {
+  if (!window.AoTixAndroid) return;
+  AoTixAndroid.qrBright(isOpen(lightbox) || (isOpen(modal) && !!modalBody.querySelector('img.pax-qr')));
 }
 
 /* ===== Modal detail ===== */
@@ -663,11 +669,9 @@ function openLightbox(index) {
   lbAnimating = false;
   lbApplyQrSize();
   showPop(lightbox);
-  if (window.AoTixAndroid) AoTixAndroid.qrBright(true);   // app Android: layar terang maksimal
 }
 function closeLightbox() {
   lbItems = [];
-  if (window.AoTixAndroid) AoTixAndroid.qrBright(false);
   hidePop(lightbox, function () { lightboxImg.src = ''; });
 }
 
