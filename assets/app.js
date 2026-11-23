@@ -663,9 +663,11 @@ function openLightbox(index) {
   lbAnimating = false;
   lbApplyQrSize();
   showPop(lightbox);
+  if (window.AoTixAndroid) AoTixAndroid.qrBright(true);   // app Android: layar terang maksimal
 }
 function closeLightbox() {
   lbItems = [];
+  if (window.AoTixAndroid) AoTixAndroid.qrBright(false);
   hidePop(lightbox, function () { lightboxImg.src = ''; });
 }
 
